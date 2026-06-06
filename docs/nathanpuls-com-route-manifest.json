@@ -1,0 +1,197 @@
+{
+  "schemaVersion": 1,
+  "domain": "nathanpuls.com",
+  "verifiedAt": "2026-06-09",
+  "deploymentChangesMade": true,
+  "nathanpulsApexRoutingChanged": true,
+  "localOverhaul": {
+    "implemented": true,
+    "deployed": true,
+    "features": ["domain-plus-path-namespaces", "iframe-page-mode", "domain-switching-editor"]
+  },
+  "stagedPages": [
+    {
+      "domain": "nathanpuls.com",
+      "path": "/week4",
+      "pageId": "W4H10H8j",
+      "sourceType": "iframe",
+      "source": "https://week-4.pages.dev/"
+    },
+    {
+      "domain": "nathanpuls.com",
+      "path": "/suno",
+      "pageId": "0AImSibn",
+      "sourceType": "iframe",
+      "source": "https://suno-audio-player.pages.dev/"
+    },
+    {
+      "domain": "nathanpuls.com",
+      "path": "/week4/admin",
+      "pageId": "xSDaGgT1",
+      "sourceType": "iframe",
+      "source": "https://week-4.pages.dev/admin"
+    },
+    {
+      "domain": "nathanpuls.com",
+      "path": "/suno/admin",
+      "pageId": "1ENHKjT6",
+      "sourceType": "iframe",
+      "source": "https://suno-audio-player.pages.dev/admin"
+    }
+  ],
+  "scope": {
+    "include": ["nathanpuls.com/*"],
+    "exclude": ["*.nathanpuls.com/*"],
+    "subdomainPolicy": "do-not-change"
+  },
+  "defaultRoute": {
+    "pattern": "nathanpuls.com/*",
+    "owner": "subdomain-path-redirect",
+    "behavior": "apex-fallback-404",
+    "migrationMode": "replace-with-built-at-after-preview-verification"
+  },
+  "routes": [
+    {
+      "pattern": "nathanpuls.com/suno*",
+      "aliases": ["nathanpuls.com/Suno*"],
+      "status": "replaced-by-built-at-page",
+      "owner": "simple-editor",
+      "upstream": "https://suno-audio-player.pages.dev",
+      "localSource": "/Users/nathanpuls/Documents/suno-audio-player",
+      "dependencies": ["pages-functions", "r2:media", "media.nathanpuls.com", "protected-playlist-api"],
+      "migrationMode": "proxy-first"
+    },
+    {
+      "pattern": "nathanpuls.com/week4*",
+      "status": "replaced-by-built-at-page",
+      "owner": "simple-editor",
+      "upstream": "https://week-4.pages.dev",
+      "localSource": "/Users/nathanpuls/Desktop/Week 4",
+      "dependencies": ["pages-functions", "d1:week4-play-counts", "audio-assets"],
+      "migrationMode": "evaluate-iframe-or-proxy"
+    },
+    {
+      "pattern": "nathanpuls.com/api/md/*",
+      "status": "active",
+      "owner": "ai-workflow-md-proxy",
+      "localSource": "/Users/nathanpuls/Desktop/code 2026/AI Workflow Gist/worker",
+      "dependencies": ["github:nathanpuls/ai-workflow-notes", "secret:GITHUB_PAT"],
+      "migrationMode": "preserve-api"
+    },
+    {
+      "pattern": "nathanpuls.com/robots.txt",
+      "status": "active-system-path",
+      "owner": "cloudflare-managed",
+      "dependencies": ["cloudflare-content-signals"],
+      "migrationMode": "preserve"
+    }
+  ],
+  "subdomains": [
+    {
+      "host": "docs.nathanpuls.com",
+      "status": "active",
+      "provider": "gitbook-vercel",
+      "migrationMode": "out-of-scope-do-not-change"
+    },
+    {
+      "host": "jobs.nathanpuls.com",
+      "status": "active",
+      "provider": "gitbook-vercel",
+      "migrationMode": "out-of-scope-do-not-change"
+    },
+    {
+      "host": "e.nathanpuls.com",
+      "status": "active",
+      "provider": "google-esf",
+      "migrationMode": "out-of-scope-do-not-change"
+    },
+    {
+      "host": "media.nathanpuls.com",
+      "status": "active",
+      "owner": "subdomain-path-redirect",
+      "dependencies": ["r2:media", "byte-range-requests"],
+      "migrationMode": "out-of-scope-do-not-change"
+    },
+    {
+      "host": "www.nathanpuls.com",
+      "status": "active-redirect",
+      "owner": "subdomain-path-redirect",
+      "target": "https://nathanpuls.com/",
+      "migrationMode": "out-of-scope-do-not-change"
+    },
+    {
+      "host": "timmymorgan.nathanpuls.com",
+      "status": "reserved-legacy-dependent",
+      "owner": "subdomain-path-redirect",
+      "dependencyEvidence": "/Users/nathanpuls/Desktop/code 2026/timmy-morgan-sheets/upload-worker",
+      "migrationMode": "out-of-scope-do-not-change"
+    },
+    {
+      "host": "rd.nathanpuls.com",
+      "status": "reserved-unconfirmed",
+      "owner": "subdomain-path-redirect",
+      "migrationMode": "out-of-scope-do-not-change"
+    },
+    {
+      "host": "*.nathanpuls.com",
+      "status": "active-wildcard",
+      "owner": "subdomain-path-redirect",
+      "migrationMode": "out-of-scope-do-not-change"
+    }
+  ],
+  "supportingServices": [
+    {
+      "name": "suno-audio-player",
+      "type": "cloudflare-pages",
+      "status": "active"
+    },
+    {
+      "name": "week-4",
+      "type": "cloudflare-pages",
+      "status": "active"
+    },
+    {
+      "name": "original-songs-audio-player",
+      "type": "cloudflare-pages",
+      "status": "active-unattached-to-confirmed-route"
+    },
+    {
+      "name": "media",
+      "type": "cloudflare-r2",
+      "status": "active-shared"
+    },
+    {
+      "name": "week4-play-counts",
+      "id": "624f6b9a-3153-4855-8b14-9a8c995fa356",
+      "type": "cloudflare-d1",
+      "status": "active"
+    }
+  ],
+  "legacyRedirectCandidates": [
+    {
+      "path": "/twins",
+      "historicalTarget": "https://wyr.es/twins",
+      "currentStatus": 404,
+      "migrationMode": "review"
+    },
+    {
+      "path": "/google",
+      "historicalTarget": "https://google.com",
+      "currentStatus": 404,
+      "migrationMode": "review"
+    }
+  ],
+  "unconfirmedCandidates": [
+    {
+      "name": "original-songs-audio-player public path",
+      "testedPaths": ["/original-songs", "/originalsongs", "/music"],
+      "currentStatus": 404,
+      "migrationMode": "choose-new-route-or-leave-unattached"
+    },
+    {
+      "name": "historical apex pages",
+      "source": "Internet Archive",
+      "migrationMode": "classify-before-apex-takeover"
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+ALTER TABLE pages ADD COLUMN source TEXT NOT NULL DEFAULT '';
+ALTER TABLE pages ADD COLUMN source_type TEXT NOT NULL DEFAULT 'markdown';
+ALTER TABLE pages ADD COLUMN path TEXT NOT NULL DEFAULT '';
+ALTER TABLE pages ADD COLUMN is_home INTEGER NOT NULL DEFAULT 0;
+
+CREATE UNIQUE INDEX IF NOT EXISTS pages_path_idx
+ON pages (path)
+WHERE path <> '';
+
+CREATE INDEX IF NOT EXISTS pages_home_idx
+ON pages (is_home, updated_at DESC);

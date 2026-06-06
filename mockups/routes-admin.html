@@ -1,0 +1,321 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Personal Routes Admin Mockup</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f6f7f8;
+      --panel: #ffffff;
+      --text: #111827;
+      --muted: #6b7280;
+      --line: #e5e7eb;
+      --soft: #f3f4f6;
+      --blue: #2563eb;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--text);
+      background: var(--bg);
+    }
+
+    .app {
+      display: grid;
+      grid-template-columns: 360px minmax(0, 1fr);
+      height: 100vh;
+    }
+
+    aside {
+      border-right: 1px solid var(--line);
+      background: var(--panel);
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+    }
+
+    header {
+      height: 64px;
+      padding: 0 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--line);
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 18px;
+      line-height: 1.2;
+      letter-spacing: 0;
+    }
+
+    button {
+      appearance: none;
+      border: 1px solid var(--line);
+      background: var(--panel);
+      color: var(--text);
+      border-radius: 8px;
+      min-height: 36px;
+      padding: 0 12px;
+      font: inherit;
+    }
+
+    .primary {
+      border-color: var(--text);
+      background: var(--text);
+      color: #fff;
+    }
+
+    .search {
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    input,
+    textarea,
+    select {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      color: var(--text);
+      font: inherit;
+    }
+
+    input,
+    select {
+      height: 38px;
+      padding: 0 10px;
+    }
+
+    textarea {
+      min-height: 320px;
+      padding: 14px;
+      resize: vertical;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 14px;
+      line-height: 1.55;
+    }
+
+    .items {
+      overflow: auto;
+      padding: 8px;
+    }
+
+    .item {
+      width: 100%;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 6px 10px;
+      padding: 12px;
+      border-radius: 8px;
+      border: 1px solid transparent;
+      text-align: left;
+      background: transparent;
+    }
+
+    .item.is-active {
+      border-color: var(--line);
+      background: var(--soft);
+    }
+
+    .path {
+      font-size: 15px;
+      font-weight: 650;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .kind,
+    .meta {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .kind {
+      justify-self: end;
+    }
+
+    main {
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .toolbar {
+      height: 64px;
+      padding: 0 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--line);
+      background: var(--panel);
+    }
+
+    .toolbar-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .editor {
+      overflow: auto;
+      padding: 24px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 180px;
+      gap: 14px;
+      max-width: 980px;
+    }
+
+    label {
+      display: grid;
+      gap: 7px;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .source {
+      grid-column: 1 / -1;
+    }
+
+    .preview {
+      grid-column: 1 / -1;
+      border-top: 1px solid var(--line);
+      margin-top: 8px;
+      padding-top: 24px;
+    }
+
+    .page {
+      max-width: 720px;
+      font-size: 17px;
+      line-height: 1.72;
+    }
+
+    .page h2 {
+      margin: 0 0 18px;
+      font-size: 28px;
+      line-height: 1.2;
+    }
+
+    .page a {
+      color: #111827;
+      text-decoration: underline;
+      text-decoration-color: #6b7280;
+      text-underline-offset: 0.25em;
+    }
+
+    @media (max-width: 760px) {
+      .app {
+        grid-template-columns: 1fr;
+        height: auto;
+        min-height: 100vh;
+      }
+
+      aside {
+        border-right: 0;
+        border-bottom: 1px solid var(--line);
+        max-height: 42vh;
+      }
+
+      .grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside>
+      <header>
+        <h1>Routes</h1>
+        <button class="primary">New</button>
+      </header>
+      <div class="search">
+        <input value="" placeholder="Search paths or titles">
+      </div>
+      <div class="items">
+        <button class="item is-active">
+          <span class="path">/nathan</span>
+          <span class="kind">Markdown</span>
+          <span class="meta">Nathan Puls · updated today</span>
+        </button>
+        <button class="item">
+          <span class="path">/linksaw</span>
+          <span class="kind">Redirect</span>
+          <span class="meta">https://linksaw.com</span>
+        </button>
+        <button class="item">
+          <span class="path">/p/ddAcmpm9</span>
+          <span class="kind">Markdown</span>
+          <span class="meta">AI response · random path</span>
+        </button>
+        <button class="item">
+          <span class="path">/brief</span>
+          <span class="kind">HTML</span>
+          <span class="meta">Client handoff page</span>
+        </button>
+      </div>
+    </aside>
+    <main>
+      <div class="toolbar">
+        <div>
+          <strong>/nathan</strong>
+          <div class="meta">Also available at /p/UXlY26P8</div>
+        </div>
+        <div class="toolbar-actions">
+          <button>Open</button>
+          <button>Preview</button>
+          <button class="primary">Save</button>
+        </div>
+      </div>
+      <div class="editor">
+        <div class="grid">
+          <label>
+            Path
+            <input value="/nathan">
+          </label>
+          <label>
+            Type
+            <select>
+              <option>Auto</option>
+              <option>Markdown</option>
+              <option>HTML</option>
+              <option>Redirect</option>
+            </select>
+          </label>
+          <label class="source">
+            Source
+            <textarea># Nathan Puls
+
+[ends.at](https://ends.at) - simple pages and redirects
+
+[SayingThings.com](https://sayingthings.com/) | Voice Over
+
+This can be Markdown, plain text, HTML, or a single URL.</textarea>
+          </label>
+          <div class="preview">
+            <div class="page">
+              <h2>Nathan Puls</h2>
+              <p><a href="#">ends.at</a> - simple pages and redirects</p>
+              <p><a href="#">SayingThings.com</a> | Voice Over</p>
+              <p>This can be Markdown, plain text, HTML, or a single URL.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+</body>
+</html>

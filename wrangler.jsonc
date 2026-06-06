@@ -1,0 +1,47 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "simple-editor",
+  "workers_dev": true,
+  "routes": [
+    {
+      "pattern": "built.at/*",
+      "zone_name": "built.at"
+    },
+    {
+      "pattern": "admin.built.at",
+      "custom_domain": true
+    },
+    {
+      "pattern": "*.built.at/*",
+      "zone_name": "built.at"
+    },
+    {
+      "pattern": "nathanpuls.com/*",
+      "zone_name": "nathanpuls.com"
+    }
+  ],
+  "main": "worker/index.js",
+  "compatibility_date": "2026-05-26",
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/*"]
+  },
+  "vars": {
+    "PUBLIC_MEDIA_BASE_URL": "https://media.nathanpuls.com"
+  },
+  "r2_buckets": [
+    {
+      "binding": "MEDIA_BUCKET",
+      "bucket_name": "simple-editor"
+    }
+  ],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "simple-editor",
+      "database_id": "3eafb5c2-8d2a-42fc-bdd3-ac0fe191b754"
+    }
+  ]
+}
