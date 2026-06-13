@@ -80,15 +80,26 @@ function cleanHtmlInput(source) {
   return String(source || "").replace(/""/g, "\"")
 }
 
-export function previewDocument(source) {
+export function previewDocument(source, baseUrl = "") {
   const trimmed = cleanHtmlInput(source).trim()
+  const baseTag = baseUrl ? `<base href="${escapeHtml(baseUrl)}">` : ""
 
   if (/<!doctype html|<html[\s>]/i.test(trimmed)) {
-    if (/<\/head>/i.test(trimmed) && !/data-built-default-font/i.test(trimmed)) {
-      return trimmed.replace(/<\/head>/i, `${PREVIEW_DEFAULT_FONT_STYLE}\n</head>`)
+    let document = trimmed
+
+    if (baseTag && !/<base\b/i.test(document)) {
+      if (/<head[^>]*>/i.test(document)) {
+        document = document.replace(/<head([^>]*)>/i, `<head$1>\n  ${baseTag}`)
+      } else if (/<\/head>/i.test(document)) {
+        document = document.replace(/<\/head>/i, `  ${baseTag}\n</head>`)
+      }
     }
 
-    return trimmed
+    if (/<\/head>/i.test(document) && !/data-built-default-font/i.test(document)) {
+      return document.replace(/<\/head>/i, `${PREVIEW_DEFAULT_FONT_STYLE}\n</head>`)
+    }
+
+    return document
   }
 
   return `<!doctype html>
@@ -96,6 +107,7 @@ export function previewDocument(source) {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  ${baseTag}
   ${PREVIEW_DEFAULT_FONT_STYLE}
 </head>
 <body>

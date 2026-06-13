@@ -1125,10 +1125,11 @@ export default function App() {
                     />
                   ) : sourceType === "html" ? (
                     <iframe
+                      key={`html-preview-${selectedPage.id}`}
                       className="html-preview"
                       title="HTML preview"
                       sandbox="allow-forms allow-modals allow-popups allow-popups-to-escape-sandbox allow-same-origin allow-scripts"
-                      srcDoc={previewDocument(draft.source)}
+                      srcDoc={previewDocument(draft.source, publicUrl(selectedPage))}
                     />
                   ) : (
                     <article
