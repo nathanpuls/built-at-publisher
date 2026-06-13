@@ -195,7 +195,17 @@ function titleFromMarkdown(markdown) {
     .split("\n")
     .map((line) => stripTags(line.replace(/^[-*+]\s+/, "").replace(/^\d+\.\s+/, "")))
     .find(Boolean)
-    ?.slice(0, 160) || "Untitled page"
+    ?.slice(0, 160) || ""
+}
+
+function calculatedPageTitle(row) {
+  const source = row.source || ""
+  const sourceType = (row.source_type || "").toLowerCase()
+  const sourceTitle = (sourceType === "html" || (sourceType === "auto" && looksLikeHtml(source)))
+    ? titleFromHtml(source)
+    : titleFromMarkdown(source)
+
+  return String(row.title || "").trim() || titleFromRoutePath(row.path) || sourceTitle || ""
 }
 
 async function hashContent(content) {
@@ -1010,7 +1020,7 @@ async function renderPageRow(row, env) {
     : html
 
   return new Response(withPageMetadata(htmlDocument(pageHtml), {
-    title: row.title,
+    title: calculatedPageTitle(row),
     faviconUrl: settings.faviconHref,
   }), {
     headers: {

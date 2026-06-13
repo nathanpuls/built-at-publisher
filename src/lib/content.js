@@ -29,13 +29,21 @@ export function titleFromSource(source, fallbackTitle = "") {
   const markdownHeading = trimmed.match(/^#\s+(.+)$/m)?.[1]
   const htmlTitle = trimmed.match(/<title[^>]*>(.*?)<\/title>/is)?.[1]?.replace(/<[^>]+>/g, "")
   const htmlHeading = trimmed.match(/<h1[^>]*>(.*?)<\/h1>/is)?.[1]?.replace(/<[^>]+>/g, "")
-  const firstLine = trimmed.split("\n").map((line) => line.trim()).find(Boolean)
+  const firstLine = trimmed
+    .split("\n")
+    .map((line) => line.trim()
+      .replace(/^#{1,6}\s+/, "")
+      .replace(/^[-*+]\s+/, "")
+      .replace(/^\d+\.\s+/, "")
+      .replace(/<[^>]+>/g, "")
+      .trim())
+    .find(Boolean)
 
   if (detectSource(trimmed) === "html") {
-    return (htmlTitle || htmlHeading || fallbackTitle || "Untitled").slice(0, 160)
+    return (htmlTitle || htmlHeading || firstLine || fallbackTitle || "").slice(0, 160)
   }
 
-  return (markdownHeading || firstLine || fallbackTitle || "Untitled").slice(0, 160)
+  return (markdownHeading || firstLine || fallbackTitle || "").slice(0, 160)
 }
 
 function escapeHtml(value) {

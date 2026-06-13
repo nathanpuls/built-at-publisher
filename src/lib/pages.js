@@ -42,13 +42,21 @@ export function makePageId() {
   return crypto.randomUUID().replace(/-/g, "").slice(0, 8)
 }
 
+export function calculatedTitle(page) {
+  const explicitTitle = String(page?.title || "").trim()
+  const pathParts = displayPath(page?.path).split("/").filter(Boolean)
+  const pathTitle = pathParts.at(-1) || ""
+
+  return explicitTitle || pathTitle || titleFromSource(page?.source || "") || ""
+}
+
 export function adminPathLabel(page) {
   if (page?.path) return displayPath(page.path)
-  return page?.title || ""
+  return calculatedTitle(page)
 }
 
 export function displayTitle(page) {
-  return String(page?.title || "").trim()
+  return calculatedTitle(page)
 }
 
 export function pageTimestamp(page) {
@@ -96,3 +104,4 @@ export function selectPageFromUrl(pages) {
 
   return pages[0]?.id || null
 }
+import { titleFromSource } from "./content"
