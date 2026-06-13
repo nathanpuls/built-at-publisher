@@ -24,11 +24,17 @@ export function detectSource(source) {
   return "markdown"
 }
 
-export function titleFromSource(source, fallbackTitle = "") {
+export function titleFromSource(source, sourceType = detectSource(source), fallbackTitle = "") {
   const trimmed = String(source || "").trim()
-  const markdownHeading = trimmed.match(/^#\s+(.+)$/m)?.[1]
+  const markdownHeading = trimmed.match(/^#{1,6}\s+(.+)$/m)?.[1]
   const htmlTitle = trimmed.match(/<title[^>]*>(.*?)<\/title>/is)?.[1]?.replace(/<[^>]+>/g, "")
-  const htmlHeading = trimmed.match(/<h1[^>]*>(.*?)<\/h1>/is)?.[1]?.replace(/<[^>]+>/g, "")
+  const htmlHeading = trimmed.match(/<h[1-6][^>]*>(.*?)<\/h[1-6]>/is)?.[1]?.replace(/<[^>]+>/g, "")
+  const htmlText = trimmed
+    .replace(/<head[^>]*>[\s\S]*?<\/head>/gi, " ")
+    .replace(/<(script|style|template)[^>]*>[\s\S]*?<\/\1>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
   const firstLine = trimmed
     .split("\n")
     .map((line) => line.trim()
@@ -39,9 +45,11 @@ export function titleFromSource(source, fallbackTitle = "") {
       .trim())
     .find(Boolean)
 
-  if (detectSource(trimmed) === "html") {
-    return (htmlTitle || htmlHeading || firstLine || fallbackTitle || "").slice(0, 160)
+  if (sourceType === "html") {
+    return (htmlTitle || htmlHeading || htmlText || fallbackTitle || "").slice(0, 160)
   }
+
+  if (sourceType !== "markdown" && sourceType !== "auto") return fallbackTitle.slice(0, 160)
 
   return (markdownHeading || firstLine || fallbackTitle || "").slice(0, 160)
 }

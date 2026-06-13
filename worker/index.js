@@ -193,13 +193,16 @@ function titleFromHtml(html) {
     return stripTags(explicitTitle).slice(0, 160)
   }
 
-  const heading = (html || "").match(/<h1[^>]*>([\s\S]*?)<\/h1>/i)?.[1]
+  const heading = (html || "").match(/<h[1-6][^>]*>([\s\S]*?)<\/h[1-6]>/i)?.[1]
 
   if (heading) {
     return stripTags(heading).slice(0, 160)
   }
 
-  return ""
+  return stripTags((html || "")
+    .replace(/<head[^>]*>[\s\S]*?<\/head>/gi, " ")
+    .replace(/<(script|style|template)[^>]*>[\s\S]*?<\/\1>/gi, " "))
+    .slice(0, 160)
 }
 
 function titleFromMarkdown(markdown) {
@@ -223,7 +226,19 @@ function calculatedPageTitle(row) {
     ? titleFromHtml(source)
     : titleFromMarkdown(source)
 
-  return String(row.title || "").trim() || titleFromRoutePath(row.path) || sourceTitle || ""
+  return String(row.title || "").trim() || sourceTitle || titleFromRoutePath(row.path) || ""
+}
+
+function suggestedPageTitle(pageContent, path) {
+  const source = pageContent.source || ""
+  const sourceType = (pageContent.sourceType || "").toLowerCase()
+  const sourceTitle = (sourceType === "html" || (sourceType === "auto" && looksLikeHtml(source)))
+    ? titleFromHtml(source)
+    : (sourceType === "markdown" || sourceType === "auto")
+      ? titleFromMarkdown(source)
+      : ""
+
+  return sourceTitle || titleFromRoutePath(path) || ""
 }
 
 async function hashContent(content) {
@@ -638,11 +653,12 @@ async function savePageData(body, env, publish = false) {
   const path = normalizeRoutePath(body.path || "")
   const domain = normalizeDomain(body.domain)
   const requestedFaviconUrl = typeof body.faviconUrl === "string" ? body.faviconUrl.trim() : null
-  const title = (
+  const requestedTitle = (
     typeof body.title === "string"
       ? body.title.trim()
       : ""
   ).slice(0, 160)
+  const title = requestedTitle || suggestedPageTitle(pageContent, path)
   const slug = slugify(body.slug || title)
   const isBlankPage = !html && !pageContent.source
   let hash = isBlankPage ? "" : await hashContent(html || pageContent.source)
@@ -867,11 +883,12 @@ async function updatePage(request, env, id) {
     content: source,
   })
   const html = pageContent.html
-  const title = String(
+  const requestedTitle = String(
     typeof body.title === "string"
       ? body.title.trim()
       : existing.title || ""
   ).slice(0, 160)
+  const title = requestedTitle || suggestedPageTitle(pageContent, path)
   const slug = slugify(body.slug || title)
   const status = body.status || existing.status || "published"
   const now = new Date().toISOString()

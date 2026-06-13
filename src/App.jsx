@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { SettingsMenu } from "./components/SettingsMenu"
 import { Sidebar } from "./components/Sidebar"
-import { detectSource, previewDocument, redirectUrl, renderSource } from "./lib/content"
+import { detectSource, previewDocument, redirectUrl, renderSource, titleFromSource } from "./lib/content"
 import {
   DEFAULT_DOMAIN,
   EDITABLE_DOMAINS,
@@ -34,6 +34,22 @@ function readCollapsedFolders() {
 
 function writeCollapsedFolders(folders) {
   localStorage.setItem(COLLAPSED_FOLDERS_KEY, JSON.stringify(Array.from(folders)))
+}
+
+function suggestedDraftTitle(candidate) {
+  const sourceType = candidate.sourceType === "auto" ? detectSource(candidate.source) : candidate.sourceType
+  const sourceTitle = titleFromSource(candidate.source, sourceType)
+  const pathTitle = displayPath(candidate.path).split("/").filter(Boolean).at(-1) || ""
+
+  return sourceTitle || pathTitle
+}
+
+function withSuggestedTitle(nextDraft, currentDraft) {
+  const currentTitle = currentDraft.title.trim()
+  const currentPathTitle = displayPath(currentDraft.path).split("/").filter(Boolean).at(-1) || ""
+  const titleIsAutomatic = !currentTitle || currentTitle === suggestedDraftTitle(currentDraft) || currentTitle === currentPathTitle
+
+  return titleIsAutomatic ? { ...nextDraft, title: suggestedDraftTitle(nextDraft) } : nextDraft
 }
 
 async function readJsonResponse(response) {
@@ -428,8 +444,10 @@ export default function App() {
 
       if (isCurrentPage()) {
         const normalizedDraftPath = displayPath(page.path)
-        if (normalizedDraftPath !== nextDraft.path) {
-          setDraft((current) => current.path === nextDraft.path ? { ...current, path: normalizedDraftPath } : current)
+        if (normalizedDraftPath !== nextDraft.path || page.title !== nextDraft.title) {
+          setDraft((current) => current.path === nextDraft.path && current.title === nextDraft.title
+            ? { ...current, path: normalizedDraftPath, title: page.title || "" }
+            : current)
         }
 
         if (options.isHome) {
@@ -731,7 +749,7 @@ export default function App() {
       const source = await navigator.clipboard.readText()
       setError("")
       setSourcePasteStatus("pasted")
-      scheduleSave({ ...draft, source })
+      scheduleSave(withSuggestedTitle({ ...draft, source }, draft))
       window.setTimeout(() => setSourcePasteStatus(""), 1200)
     } catch {
       setError("Could not read from the clipboard.")
@@ -916,7 +934,7 @@ export default function App() {
   }
 
   function changeSourceType(nextSourceType) {
-    scheduleSave({ ...draft, sourceType: nextSourceType })
+    scheduleSave(withSuggestedTitle({ ...draft, sourceType: nextSourceType }, draft))
   }
 
   async function uploadFavicon(event) {
@@ -1069,7 +1087,7 @@ export default function App() {
                     aria-invalid={Boolean(pathError)}
                     aria-describedby={pathError ? "path-error" : undefined}
                     aria-keyshortcuts="p"
-                    onChange={(event) => scheduleSave({ ...draft, path: event.target.value })}
+                    onChange={(event) => scheduleSave(withSuggestedTitle({ ...draft, path: event.target.value }, draft))}
                   />
                   {pathError ? <span className="field-error" id="path-error">{pathError}</span> : null}
                 </span>
@@ -1252,7 +1270,7 @@ export default function App() {
                 <textarea
                   ref={sourceTextareaRef}
                   value={draft.source}
-                  onChange={(event) => scheduleSave({ ...draft, source: event.target.value })}
+                  onChange={(event) => scheduleSave(withSuggestedTitle({ ...draft, source: event.target.value }, draft))}
                   aria-keyshortcuts="s"
                   spellCheck="false"
                 />

@@ -47,7 +47,7 @@ export function calculatedTitle(page) {
   const pathParts = displayPath(page?.path).split("/").filter(Boolean)
   const pathTitle = pathParts.at(-1) || ""
 
-  return explicitTitle || pathTitle || titleFromSource(page?.source || "") || ""
+  return explicitTitle || titleFromSource(page?.source || "", page?.sourceType || "auto") || pathTitle || ""
 }
 
 export function adminPathLabel(page) {
