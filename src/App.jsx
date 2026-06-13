@@ -986,6 +986,11 @@ export default function App() {
                 </button>
               </div>
               <div className="path-actions">
+                <div className="editor-view-switcher" role="group" aria-label="Editor view">
+                  <button className={editorView === "source" ? "is-active" : ""} type="button" onClick={() => setEditorView("source")} aria-pressed={editorView === "source"}>Source</button>
+                  <button className={editorView === "split" ? "is-active" : ""} type="button" onClick={() => setEditorView("split")} aria-pressed={editorView === "split"}>Split</button>
+                  <button className={editorView === "preview" ? "is-active" : ""} type="button" onClick={() => setEditorView("preview")} aria-pressed={editorView === "preview"}>Preview</button>
+                </div>
                 <SettingsMenu
                   activeDomain={activeDomain}
                   domainSettings={domainSettings}
@@ -1013,11 +1018,6 @@ export default function App() {
         </header>
         {selectedPage ? (
           <div className="editor">
-            <div className="editor-view-switcher" role="group" aria-label="Editor view">
-              <button className={editorView === "source" ? "is-active" : ""} type="button" onClick={() => setEditorView("source")} aria-pressed={editorView === "source"}>Source</button>
-              <button className={editorView === "split" ? "is-active" : ""} type="button" onClick={() => setEditorView("split")} aria-pressed={editorView === "split"}>Split</button>
-              <button className={editorView === "preview" ? "is-active" : ""} type="button" onClick={() => setEditorView("preview")} aria-pressed={editorView === "preview"}>Preview</button>
-            </div>
             <div className={`form-grid is-${editorView}-view`}>
               <div className="source-area">
                 <div className="field-label source-label">

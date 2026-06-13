@@ -886,21 +886,15 @@ textarea {
   min-height: 0;
   overflow: hidden;
   padding: 18px;
-  position: relative;
 }
 
 .editor-view-switcher {
-  position: absolute;
-  top: 16px;
-  left: 50%;
-  z-index: 2;
   padding: 1px;
   border: 1px solid var(--line);
   border-radius: 7px;
   background: var(--panel);
   display: inline-flex;
   gap: 2px;
-  transform: translateX(-50%);
 }
 
 .editor-view-switcher button {
@@ -1269,17 +1263,6 @@ input[aria-invalid="true"] {
   .editor {
     padding: 16px 14px 24px;
     overflow: visible;
-  }
-
-  .editor-view-switcher {
-    position: static;
-    width: 100%;
-    margin-bottom: 8px;
-    transform: none;
-  }
-
-  .editor-view-switcher button {
-    flex: 1 1 0;
   }
 
   .form-grid {
