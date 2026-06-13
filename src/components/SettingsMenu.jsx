@@ -6,11 +6,34 @@ export function SettingsMenu({
   isOpen,
   menuRef,
   onChooseFavicon,
+  onChoosePageFavicon,
   onCloseDomainMenu,
+  onResetPageFavicon,
   onSaveFaviconUrl,
+  onSavePageFaviconUrl,
   onSetFaviconUrlDraft,
+  onSetPageFaviconUrlDraft,
   onToggle,
+  page,
+  pageFaviconInputRef,
+  pageFaviconUrlDraft,
+  onUploadPageFavicon,
 }) {
+  const sitePreview = domainSettings.faviconUrl || "/favicon-v2.svg"
+  const pagePreview = page?.faviconUrl || sitePreview
+
+  function IconPreview({ label, src }) {
+    return (
+      <div className="icon-preview-group">
+        <span>{label}</span>
+        <div>
+          <span className="icon-preview"><img src={src} alt="" /></span>
+          <span className="icon-preview is-maskable"><img src={src} alt="" /></span>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="settings-control" ref={menuRef}>
       <button
@@ -39,8 +62,12 @@ export function SettingsMenu({
               <small>{activeDomain}</small>
             </span>
           </div>
+          <section className="icon-settings-section">
+            <strong>Site icon</strong>
+            <IconPreview label="Regular / maskable" src={sitePreview} />
+          </section>
           <button type="button" onClick={onChooseFavicon}>
-            <span>Choose favicon</span>
+            <span>Choose site icon</span>
             <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
               <path d="M12 5v14M5 12h14" />
             </svg>
@@ -75,6 +102,35 @@ export function SettingsMenu({
                 ))}
               </div>
             </div>
+          ) : null}
+          {page ? (
+            <section className="icon-settings-section page-icon-settings">
+              <span className="icon-settings-title">
+                <strong>Page icon</strong>
+                <small>{page.faviconUrl ? "Page override" : "Using site default"}</small>
+              </span>
+              <IconPreview label="Regular / maskable" src={pagePreview} />
+              <input ref={pageFaviconInputRef} className="visually-hidden" type="file" accept="image/*" onChange={onUploadPageFavicon} />
+              <button type="button" onClick={onChoosePageFavicon}>
+                <span>Choose page icon</span>
+                <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+                  <path d="M12 5v14M5 12h14" />
+                </svg>
+              </button>
+              <div className="favicon-url-control">
+                <input
+                  value={pageFaviconUrlDraft}
+                  onChange={(event) => onSetPageFaviconUrlDraft(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") onSavePageFaviconUrl(pageFaviconUrlDraft)
+                  }}
+                  placeholder="Page image URL"
+                  aria-label="Page favicon image URL"
+                />
+                <button type="button" onClick={() => onSavePageFaviconUrl(pageFaviconUrlDraft)}>Apply</button>
+              </div>
+              {page.faviconUrl ? <button className="reset-page-icon" type="button" onClick={onResetPageFavicon}>Reset to site default</button> : null}
+            </section>
           ) : null}
           {faviconStatus ? <span className="domain-settings-status">{faviconStatus}</span> : null}
         </div>

@@ -1,5 +1,6 @@
 import { marked } from "marked"
 import { createDomainSettingsHandlers } from "./domain-settings"
+import { createIconHandlers } from "./icons"
 import { createMediaHandlers } from "./media"
 
 const EMPTY_DOC_JSON = JSON.stringify({
@@ -54,18 +55,27 @@ function escapeHtml(value) {
     .replace(/"/g, "&quot;")
 }
 
-function faviconLink(faviconUrl = "") {
-  return faviconUrl
-    ? `<link rel="icon" type="image/svg+xml" sizes="any" href="${escapeHtml(faviconUrl)}">`
-    : FAVICON_LINK
+function iconLinks({ domain = DEFAULT_DOMAIN, pageId = "" } = {}) {
+  const scope = `domain=${encodeURIComponent(domain)}${pageId ? `&page=${encodeURIComponent(pageId)}` : ""}`
+  return [
+    `<link rel="icon" type="image/png" sizes="16x16" href="/api/icon?${scope}&size=16">`,
+    `<link rel="icon" type="image/png" sizes="32x32" href="/api/icon?${scope}&size=32">`,
+    `<link rel="shortcut icon" href="/api/icon.ico?${scope}">`,
+    `<link rel="apple-touch-icon" sizes="180x180" href="/api/icon?${scope}&size=180">`,
+    `<link rel="manifest" href="/api/manifest?${scope}">`,
+  ].join("\n  ")
 }
 
-function withFavicon(html, faviconUrl = "") {
-  let document = String(html || "")
-  const link = faviconLink(faviconUrl)
+function faviconLink() {
+  return iconLinks()
+}
 
-  if (/<link\b[^>]*rel=["'][^"']*\b(?:icon|shortcut icon)\b[^"']*["'][^>]*>/i.test(document)) {
-    document = document.replace(/<link\b[^>]*rel=["'][^"']*\b(?:icon|shortcut icon)\b[^"']*["'][^>]*>/i, link)
+function withFavicon(html, iconContext = {}) {
+  let document = String(html || "")
+  const link = iconLinks(iconContext)
+
+  if (/<link\b[^>]*rel=["'][^"']*\b(?:icon|shortcut icon|apple-touch-icon|manifest)\b[^"']*["'][^>]*>/i.test(document)) {
+    document = document.replace(/(?:\s*<link\b[^>]*rel=["'][^"']*\b(?:icon|shortcut icon|apple-touch-icon|manifest)\b[^"']*["'][^>]*>)+/gi, `\n  ${link}`)
   } else if (/<\/head>/i.test(document)) {
     document = document.replace(/<\/head>/i, `  ${link}\n</head>`)
   }
@@ -77,8 +87,8 @@ function withFavicon(html, faviconUrl = "") {
   return document
 }
 
-function withPageMetadata(html, { title = "", faviconUrl = "" } = {}) {
-  let document = withFavicon(html, faviconUrl)
+function withPageMetadata(html, { title = "", domain = DEFAULT_DOMAIN, pageId = "" } = {}) {
+  let document = withFavicon(html, { domain, pageId })
   const titleTag = `<title>${escapeHtml(title)}</title>`
 
   if (/<title[^>]*>[\s\S]*?<\/title>/i.test(document)) {
@@ -139,6 +149,14 @@ const {
   updateDomainSettings,
 } = createDomainSettingsHandlers({
   defaultDomain: DEFAULT_DOMAIN,
+  json,
+  normalizeDomain,
+  requestDomain,
+})
+
+const { renderIcon, renderManifest } = createIconHandlers({
+  calculatedPageTitle,
+  getDomainSettings,
   json,
   normalizeDomain,
   requestDomain,
@@ -587,6 +605,7 @@ function pageRowToResponse(row) {
     id: row.id,
     slug: row.slug,
     title: row.title,
+    faviconUrl: row.favicon_url || "",
     hash: row.hash,
     html: row.markdown,
     markdown: row.markdown,
@@ -618,6 +637,7 @@ async function savePageData(body, env, publish = false) {
   const html = pageContent.html
   const path = normalizeRoutePath(body.path || "")
   const domain = normalizeDomain(body.domain)
+  const requestedFaviconUrl = typeof body.faviconUrl === "string" ? body.faviconUrl.trim() : null
   const title = (
     typeof body.title === "string"
       ? body.title.trim()
@@ -657,16 +677,17 @@ async function savePageData(body, env, publish = false) {
     hash = `${id}:${hash}`
   }
 
-  const existing = await env.DB.prepare("SELECT created_at FROM pages WHERE id = ?")
+  const existing = await env.DB.prepare("SELECT created_at, favicon_url FROM pages WHERE id = ?")
     .bind(id)
     .first()
+  const faviconUrl = requestedFaviconUrl ?? existing?.favicon_url ?? ""
   const createdAt = existing?.created_at || now
   const publishedAt = status === "published" ? now : null
 
   await env.DB.prepare(
     `INSERT INTO pages
-      (id, slug, title, hash, markdown, json, status, created_at, updated_at, published_at, source, source_type, path, domain)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      (id, slug, title, hash, markdown, json, status, created_at, updated_at, published_at, source, source_type, path, domain, favicon_url)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(id) DO UPDATE SET
       slug = excluded.slug,
       title = excluded.title,
@@ -678,10 +699,11 @@ async function savePageData(body, env, publish = false) {
       source_type = excluded.source_type,
       path = excluded.path,
       domain = excluded.domain,
+      favicon_url = excluded.favicon_url,
       updated_at = excluded.updated_at,
       published_at = COALESCE(excluded.published_at, pages.published_at)`
   )
-    .bind(id, slug, title, hash, html, docJson, status, createdAt, now, publishedAt, source, sourceType, path, domain)
+    .bind(id, slug, title, hash, html, docJson, status, createdAt, now, publishedAt, source, sourceType, path, domain, faviconUrl)
     .run()
 
   const row = await env.DB.prepare("SELECT * FROM pages WHERE id = ? AND deleted_at IS NULL").bind(id).first()
@@ -830,6 +852,7 @@ async function updatePage(request, env, id) {
   const body = await request.json()
   const path = normalizeRoutePath(body.path ?? existing.path ?? "")
   const domain = normalizeDomain(body.domain ?? existing.domain)
+  const faviconUrl = typeof body.faviconUrl === "string" ? body.faviconUrl.trim() : existing.favicon_url || ""
   const source = (
     typeof body.source === "string" ? body.source :
     typeof body.html === "string" ? body.html :
@@ -875,7 +898,7 @@ async function updatePage(request, env, id) {
   await env.DB.prepare(
     `UPDATE pages
      SET slug = ?, title = ?, hash = ?, markdown = ?, status = ?, updated_at = ?,
-      source = ?, source_type = ?, path = ?, domain = ?, is_home = ?
+      source = ?, source_type = ?, path = ?, domain = ?, is_home = ?, favicon_url = ?
      WHERE id = ?`
   )
     .bind(
@@ -890,6 +913,7 @@ async function updatePage(request, env, id) {
       path,
       domain,
       body.isHome ? 1 : (body.isHome === false ? 0 : existing.is_home || 0),
+      faviconUrl,
       id
     )
     .run()
@@ -1007,13 +1031,12 @@ async function renderPage(id, env) {
   return renderPageRow(row, env)
 }
 
-async function renderPageRow(row, env) {
+async function renderPageRow(row) {
   if ((row.source_type || "").toLowerCase() === "redirect") {
     return redirectResponse(redirectUrl(row.source) || row.source)
   }
 
   const html = cleanHtmlInput(legacyMarkdownWrappedHtml(row.markdown || ""))
-  const settings = await getDomainSettings(env, row.domain)
   const sourceType = (row.source_type || "").toLowerCase()
   const pageHtml = (sourceType === "markdown" || (sourceType === "auto" && !looksLikeHtml(row.source)))
     ? withMarkdownLinkStyle(html)
@@ -1021,7 +1044,8 @@ async function renderPageRow(row, env) {
 
   return new Response(withPageMetadata(htmlDocument(pageHtml), {
     title: calculatedPageTitle(row),
-    faviconUrl: settings.faviconHref,
+    domain: normalizeDomain(row.domain),
+    pageId: row.id,
   }), {
     headers: {
       "content-type": "text/html; charset=utf-8",
@@ -1102,7 +1126,7 @@ async function listPages(env, domain = DEFAULT_DOMAIN) {
   }
 
   const result = await env.DB.prepare(
-    `SELECT id, slug, title, status, markdown, source, source_type, path, domain, is_home,
+    `SELECT id, slug, title, status, markdown, source, source_type, path, domain, is_home, favicon_url,
       created_at AS createdAt, updated_at AS updatedAt, published_at AS publishedAt
      FROM pages
      WHERE domain = ? AND deleted_at IS NULL
@@ -1118,6 +1142,7 @@ async function listPages(env, domain = DEFAULT_DOMAIN) {
       domain: normalizeDomain(page.domain),
       path: page.path || "",
       isHome: Boolean(page.is_home),
+      faviconUrl: page.favicon_url || "",
       url: page.path || `/p/${page.id}${page.slug ? `/${page.slug}` : ""}`,
       fallbackUrl: `/p/${page.id}${page.slug ? `/${page.slug}` : ""}`,
     })),
@@ -1164,6 +1189,18 @@ export default {
       (request.method === "GET" || request.method === "HEAD")
     ) {
       return renderDomainFavicon(request, env)
+    }
+
+    if (url.pathname === "/api/icon" && (request.method === "GET" || request.method === "HEAD")) {
+      return renderIcon(request, env)
+    }
+
+    if (url.pathname === "/api/icon.ico" && (request.method === "GET" || request.method === "HEAD")) {
+      return renderIcon(request, env, { ico: true })
+    }
+
+    if (url.pathname === "/api/manifest" && request.method === "GET") {
+      return renderManifest(request, env)
     }
 
     if (url.pathname === "/api/pages" && request.method === "POST") {

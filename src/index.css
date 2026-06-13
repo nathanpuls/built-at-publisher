@@ -317,6 +317,76 @@ button:focus-visible,
   object-fit: cover;
 }
 
+.icon-settings-section {
+  padding: 8px;
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 7px;
+}
+
+.icon-settings-section > strong,
+.icon-settings-title strong {
+  font-size: 12px;
+}
+
+.icon-settings-title {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.icon-settings-title small,
+.icon-preview-group > span {
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.icon-preview-group {
+  display: grid;
+  gap: 5px;
+}
+
+.icon-preview-group > div {
+  display: flex;
+  gap: 8px;
+}
+
+.icon-preview {
+  width: 44px;
+  height: 44px;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+
+.icon-preview img {
+  width: 100%;
+  height: 100%;
+  border-radius: 7px;
+  object-fit: cover;
+}
+
+.icon-preview.is-maskable {
+  border-radius: 50%;
+  background: var(--soft);
+}
+
+.icon-preview.is-maskable img {
+  width: 80%;
+  height: 80%;
+  border-radius: 50%;
+}
+
+.page-icon-settings .reset-page-icon {
+  color: var(--muted);
+  justify-content: flex-start;
+}
+
 h1 {
   margin: 0;
   font-size: 18px;
@@ -844,7 +914,9 @@ textarea {
   top: calc(100% + 8px);
   right: 0;
   z-index: 50;
-  width: 250px;
+  width: 290px;
+  max-height: min(680px, calc(100vh - 90px));
+  overflow-y: auto;
   padding: 5px;
   border: 1px solid var(--line);
   border-radius: 8px;

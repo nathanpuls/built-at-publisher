@@ -64,6 +64,7 @@ export default function App() {
   const [draft, setDraft] = useState({ path: "", source: "", sourceType: "auto", title: "" })
   const [domainSettings, setDomainSettings] = useState({ faviconUrl: "", loadedDomain: null })
   const [faviconUrlDraft, setFaviconUrlDraft] = useState("")
+  const [pageFaviconUrlDraft, setPageFaviconUrlDraft] = useState("")
   const [faviconStatus, setFaviconStatus] = useState("")
   const [isDomainMenuOpen, setIsDomainMenuOpen] = useState(false)
   const [isSettingsMenuOpen, setIsSettingsMenuOpen] = useState(false)
@@ -94,6 +95,7 @@ export default function App() {
   const searchInputRef = useRef(null)
   const pathInputRef = useRef(null)
   const faviconInputRef = useRef(null)
+  const pageFaviconInputRef = useRef(null)
   const domainMenuRef = useRef(null)
   const settingsMenuRef = useRef(null)
   const copyMenuRef = useRef(null)
@@ -227,6 +229,7 @@ export default function App() {
       sourceType: selectedPage.sourceType || "auto",
       title: selectedPage.title || "",
     })
+    setPageFaviconUrlDraft(selectedPage.faviconUrl || "")
 
     if (keepAdminHomeUrl.current) {
       keepAdminHomeUrl.current = false
@@ -975,6 +978,50 @@ export default function App() {
     }
   }
 
+  async function savePageFaviconUrl(faviconUrl) {
+    if (!selectedPage) return
+    setError("")
+    setFaviconStatus("Saving")
+
+    try {
+      const response = await fetch(`/api/pages/${selectedPage.id}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ faviconUrl: faviconUrl.trim() }),
+      })
+      const page = await readJsonResponse(response)
+      if (!response.ok) throw new Error(page.error || "Could not save page icon.")
+
+      setPages((current) => current.map((entry) => entry.id === page.id ? { ...entry, ...page } : entry))
+      setPageFaviconUrlDraft(page.faviconUrl || "")
+      setFaviconStatus("Saved")
+      window.setTimeout(() => setFaviconStatus(""), 1200)
+    } catch (faviconError) {
+      setError(faviconError.message || "Could not update page icon.")
+      setFaviconStatus("")
+    }
+  }
+
+  async function uploadPageFavicon(event) {
+    const file = event.target.files?.[0]
+    event.target.value = ""
+    if (!file) return
+
+    setError("")
+    setFaviconStatus("Uploading")
+    try {
+      const form = new FormData()
+      form.append("file", file)
+      const response = await fetch("/api/media", { method: "POST", body: form })
+      const upload = await readJsonResponse(response)
+      if (!response.ok) throw new Error(upload.error || "Could not upload page icon.")
+      await savePageFaviconUrl(upload.url)
+    } catch (faviconError) {
+      setError(faviconError.message || "Could not update page icon.")
+      setFaviconStatus("")
+    }
+  }
+
   return (
     <div className="admin-shell">
       <Sidebar
@@ -1052,13 +1099,21 @@ export default function App() {
                     setIsSettingsMenuOpen(false)
                     faviconInputRef.current?.click()
                   }}
+                  onChoosePageFavicon={() => pageFaviconInputRef.current?.click()}
                   onCloseDomainMenu={() => setIsDomainMenuOpen(false)}
+                  onResetPageFavicon={() => savePageFaviconUrl("")}
                   onSaveFaviconUrl={saveFaviconUrl}
+                  onSavePageFaviconUrl={savePageFaviconUrl}
                   onSetFaviconUrlDraft={setFaviconUrlDraft}
+                  onSetPageFaviconUrlDraft={setPageFaviconUrlDraft}
                   onToggle={() => {
                     setIsCopyMenuOpen(false)
                     setIsSettingsMenuOpen((current) => !current)
                   }}
+                  onUploadPageFavicon={uploadPageFavicon}
+                  page={selectedPage}
+                  pageFaviconInputRef={pageFaviconInputRef}
+                  pageFaviconUrlDraft={pageFaviconUrlDraft}
                 />
                 <div className="copy-url-control" ref={copyMenuRef}>
                   <button className={`button copy-action ${copyStatus || permanentCopyStatus ? "is-copied" : ""}`} type="button" onClick={copyPublicUrl} aria-keyshortcuts="u">

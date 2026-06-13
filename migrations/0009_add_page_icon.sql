@@ -1,0 +1,1 @@
+ALTER TABLE pages ADD COLUMN favicon_url TEXT NOT NULL DEFAULT '';
