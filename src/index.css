@@ -303,53 +303,6 @@ button,
   object-fit: cover;
 }
 
-.permanent-link-action {
-  width: 108px;
-  max-width: 108px;
-  flex: 0 0 108px;
-  min-height: 22px;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: var(--muted);
-  display: flex;
-  justify-content: flex-start;
-  gap: 5px;
-  font-size: 12px;
-}
-
-.permanent-link-action span:first-child {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.permanent-link-action:hover {
-  color: var(--text);
-}
-
-.permanent-link-action.is-copied {
-  color: #047857;
-}
-
-.permalink-copy-icon {
-  flex: 0 0 auto;
-  width: 18px;
-  height: 18px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.permalink-copy-icon svg {
-  fill: none;
-  stroke: currentColor;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-width: 1.8;
-}
-
 h1 {
   margin: 0;
   font-size: 18px;
@@ -759,7 +712,7 @@ textarea {
 .header-path-field {
   min-width: 0;
   display: grid;
-  grid-template-columns: minmax(180px, 300px) minmax(200px, 360px) 108px;
+  grid-template-columns: minmax(180px, 300px) minmax(200px, 360px);
   align-items: end;
   gap: 6px;
 }
@@ -791,10 +744,6 @@ textarea {
   padding: 0 2px;
   line-height: 16px;
   text-align: left;
-}
-
-.header-path-field .permanent-link-action {
-  justify-self: end;
 }
 
 .path-actions {
@@ -839,9 +788,81 @@ textarea {
 }
 
 .copy-action {
-  width: 108px;
-  flex: 0 0 108px;
+  width: 94px;
+  flex: 0 0 94px;
   transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease;
+}
+
+.copy-url-control {
+  position: relative;
+  display: flex;
+}
+
+.copy-url-control .copy-action {
+  border-radius: 8px 0 0 8px;
+}
+
+.copy-menu-trigger {
+  width: 30px;
+  min-height: 36px;
+  padding: 0;
+  border-left: 0;
+  border-radius: 0 8px 8px 0;
+  background: var(--panel);
+  color: var(--muted);
+}
+
+.copy-menu-trigger:hover,
+.copy-menu-trigger[aria-expanded="true"] {
+  background: var(--soft);
+  color: var(--text);
+}
+
+.copy-menu-trigger:focus {
+  outline: none;
+}
+
+.copy-menu-trigger:focus-visible {
+  outline: 2px solid rgba(17, 24, 39, 0.18);
+  outline-offset: 2px;
+}
+
+.copy-menu-trigger svg,
+.copy-url-menu svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2;
+}
+
+.copy-url-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 50;
+  width: 210px;
+  padding: 5px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  box-shadow: 0 14px 32px rgba(17, 24, 39, 0.14);
+}
+
+.copy-url-menu button {
+  width: 100%;
+  min-height: 34px;
+  padding: 0 9px;
+  border: 0;
+  background: transparent;
+  justify-content: space-between;
+  font-size: 13px;
+}
+
+.copy-url-menu button:hover {
+  background: var(--soft);
 }
 
 .copy-action.is-copied {
@@ -1245,11 +1266,6 @@ input[aria-invalid="true"] {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .header-path-field .permanent-link-action {
-    max-width: 100%;
-    justify-self: end;
-  }
-
   .path-actions {
     width: 100%;
     flex-wrap: wrap;
@@ -1267,6 +1283,10 @@ input[aria-invalid="true"] {
     flex: 0 1 auto;
     min-height: 36px;
     padding: 0 12px;
+  }
+
+  .copy-url-control .copy-action {
+    flex: 0 0 auto;
   }
 
   .action-status {

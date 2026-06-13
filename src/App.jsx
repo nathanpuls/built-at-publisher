@@ -67,6 +67,7 @@ export default function App() {
   const [faviconStatus, setFaviconStatus] = useState("")
   const [isDomainMenuOpen, setIsDomainMenuOpen] = useState(false)
   const [isSettingsMenuOpen, setIsSettingsMenuOpen] = useState(false)
+  const [isCopyMenuOpen, setIsCopyMenuOpen] = useState(false)
   const [collapsedFolders, setCollapsedFolders] = useState(readCollapsedFolders)
   const [query, setQuery] = useState("")
   const [status, setStatus] = useState("")
@@ -95,6 +96,7 @@ export default function App() {
   const faviconInputRef = useRef(null)
   const domainMenuRef = useRef(null)
   const settingsMenuRef = useRef(null)
+  const copyMenuRef = useRef(null)
   const sourceTextareaRef = useRef(null)
   const selectedPage = pages.find((page) => page.id === selectedId) || null
   const sourceMode = draft.sourceType || "auto"
@@ -258,12 +260,14 @@ export default function App() {
       if (event.key === "Escape") {
         setIsDomainMenuOpen(false)
         setIsSettingsMenuOpen(false)
+        setIsCopyMenuOpen(false)
         return
       }
 
       if (event.type === "pointerdown") {
         if (!domainMenuRef.current?.contains(event.target)) setIsDomainMenuOpen(false)
         if (!settingsMenuRef.current?.contains(event.target)) setIsSettingsMenuOpen(false)
+        if (!copyMenuRef.current?.contains(event.target)) setIsCopyMenuOpen(false)
       }
     }
 
@@ -605,6 +609,7 @@ export default function App() {
   function selectPage(page) {
     flushPendingSave()
     setIsSettingsMenuOpen(false)
+    setIsCopyMenuOpen(false)
     setPathError("")
     setPermanentCopyStatus("")
     setSourceCopyStatus("")
@@ -616,6 +621,7 @@ export default function App() {
   function resetAdminHome() {
     flushPendingSave()
     setIsSettingsMenuOpen(false)
+    setIsCopyMenuOpen(false)
     setQuery("")
     setError("")
     setStatus("")
@@ -657,11 +663,13 @@ export default function App() {
 
   function copyPublicUrl() {
     if (!selectedPage) return
+    setIsCopyMenuOpen(false)
     copyText(publicUrl(selectedPage), setCopyStatus)
   }
 
   function copyPermanentUrl() {
     if (!selectedPage) return
+    setIsCopyMenuOpen(false)
     copyText(new URL(`/${permanentPath(selectedPage)}`, window.location.origin).href, setPermanentCopyStatus)
   }
 
@@ -964,26 +972,6 @@ export default function App() {
                     onChange={(event) => scheduleSave({ ...draft, title: event.target.value })}
                   />
                 </span>
-                <button
-                  className={`permanent-link-action ${permanentCopyStatus ? "is-copied" : ""}`}
-                  type="button"
-                  onClick={copyPermanentUrl}
-                  title="Copy permalink"
-                >
-                  <span>{permanentPath(selectedPage)}</span>
-                  <span className="permalink-copy-icon" aria-live="polite">
-                    {permanentCopyStatus ? (
-                      <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
-                        <path d="m5 12 4 4L19 6" />
-                      </svg>
-                    ) : (
-                      <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
-                        <rect x="9" y="9" width="10" height="10" rx="2" />
-                        <path d="M15 9V7a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2" />
-                      </svg>
-                    )}
-                  </span>
-                </button>
               </div>
               <div className="path-actions">
                 <div className="editor-view-switcher" role="group" aria-label="Editor view">
@@ -1005,11 +993,51 @@ export default function App() {
                   onCloseDomainMenu={() => setIsDomainMenuOpen(false)}
                   onSaveFaviconUrl={saveFaviconUrl}
                   onSetFaviconUrlDraft={setFaviconUrlDraft}
-                  onToggle={() => setIsSettingsMenuOpen((current) => !current)}
+                  onToggle={() => {
+                    setIsCopyMenuOpen(false)
+                    setIsSettingsMenuOpen((current) => !current)
+                  }}
                 />
-                <button className={`button copy-action ${copyStatus ? "is-copied" : ""}`} type="button" onClick={copyPublicUrl} aria-keyshortcuts="u">
-                  {copyStatus ? "Copied" : "Copy URL"}
-                </button>
+                <div className="copy-url-control" ref={copyMenuRef}>
+                  <button className={`button copy-action ${copyStatus ? "is-copied" : ""}`} type="button" onClick={copyPublicUrl} aria-keyshortcuts="u">
+                    {copyStatus ? "Copied" : "Copy URL"}
+                  </button>
+                  <button
+                    className="copy-menu-trigger"
+                    type="button"
+                    onClick={() => {
+                      setIsDomainMenuOpen(false)
+                      setIsSettingsMenuOpen(false)
+                      setIsCopyMenuOpen((current) => !current)
+                    }}
+                    aria-label="More copy options"
+                    aria-expanded={isCopyMenuOpen}
+                  >
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="m8 10 4 4 4-4" />
+                    </svg>
+                  </button>
+                  {isCopyMenuOpen ? (
+                    <div className="copy-url-menu">
+                      <button type="button" onClick={copyPublicUrl}>
+                        <span>Copy public URL</span>
+                        {copyStatus ? (
+                          <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="m5 12 4 4L19 6" />
+                          </svg>
+                        ) : null}
+                      </button>
+                      <button type="button" onClick={copyPermanentUrl}>
+                        <span>Copy permanent link</span>
+                        {permanentCopyStatus ? (
+                          <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="m5 12 4 4L19 6" />
+                          </svg>
+                        ) : null}
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
                 <a className="button open-action" href={publicUrl(selectedPage)} target="_blank" rel="noreferrer" aria-keyshortcuts="o">Open</a>
                 <span className={`action-status ${error ? "is-error" : ""}`}>{error || status}</span>
               </div>
