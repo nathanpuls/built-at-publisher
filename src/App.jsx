@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react"
-import { marked } from "marked"
+import { SettingsMenu } from "./components/SettingsMenu"
+import { detectSource, previewDocument, redirectUrl, renderSource, titleFromSource } from "./lib/content"
 
 const COLLAPSED_FOLDERS_KEY = "built-routes:collapsed-folders:v1"
 const CURRENT_BUILD_ASSET = document.querySelector('script[type="module"][src]')?.getAttribute("src") || ""
@@ -54,18 +55,6 @@ function makePageId() {
   return crypto.randomUUID().replace(/-/g, "").slice(0, 8)
 }
 
-function redirectUrl(value) {
-  const trimmed = String(value || "").trim()
-
-  if (/^https?:\/\/[^\s<>"']+$/i.test(trimmed)) return trimmed
-
-  if (/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+(?::\d+)?(?:\/[^\s<>"']*)?$/i.test(trimmed)) {
-    return `https://${trimmed}`
-  }
-
-  return ""
-}
-
 function adminPathLabel(page) {
   if (page?.path) return displayPath(page.path)
   return page?.title || titleFromSource(page?.source || "") || "Untitled"
@@ -82,98 +71,6 @@ function displayTitle(page) {
   }
 
   return existingTitle || fallbackTitle || "Untitled"
-}
-
-function detectSource(source) {
-  const trimmed = String(source || "").trim()
-
-  if (/^\s*(?:<!doctype\s+html|<[a-z][a-z0-9-]*(?:\s|>|\/>))/i.test(trimmed)) return "html"
-
-  return "markdown"
-}
-
-function titleFromSource(source, fallbackTitle = "") {
-  const trimmed = String(source || "").trim()
-  const markdownHeading = trimmed.match(/^#\s+(.+)$/m)?.[1]
-  const htmlTitle = trimmed.match(/<title[^>]*>(.*?)<\/title>/is)?.[1]?.replace(/<[^>]+>/g, "")
-  const htmlHeading = trimmed.match(/<h1[^>]*>(.*?)<\/h1>/is)?.[1]?.replace(/<[^>]+>/g, "")
-  const firstLine = trimmed.split("\n").map((line) => line.trim()).find(Boolean)
-
-  if (detectSource(trimmed) === "html") {
-    return (htmlTitle || htmlHeading || fallbackTitle || "Untitled").slice(0, 160)
-  }
-
-  return (markdownHeading || firstLine || fallbackTitle || "Untitled").slice(0, 160)
-}
-
-function escapeHtml(value) {
-  return String(value || "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-}
-
-function sanitizeHtml(html) {
-  const template = document.createElement("template")
-  template.innerHTML = html
-  template.content.querySelectorAll("script, iframe, object, embed").forEach((node) => node.remove())
-  template.content.querySelectorAll("*").forEach((node) => {
-    Array.from(node.attributes).forEach((attribute) => {
-      const name = attribute.name.toLowerCase()
-      const value = attribute.value.trim()
-
-      if (name.startsWith("on")) node.removeAttribute(attribute.name)
-      if ((name === "href" || name === "src") && /^javascript:/i.test(value)) {
-        node.removeAttribute(attribute.name)
-      }
-    })
-  })
-
-  return template.innerHTML
-}
-
-function renderSource(source, type = detectSource(source)) {
-  if (type === "redirect") {
-    const url = redirectUrl(source)
-    return `<p><a href="${escapeHtml(url)}">${escapeHtml(url)}</a></p>`
-  }
-
-  if (type === "html") return sanitizeHtml(source)
-
-  return sanitizeHtml(marked.parse(String(source || ""), { gfm: true, breaks: true }))
-}
-
-function cleanHtmlInput(source) {
-  return String(source || "").replace(/""/g, "\"")
-}
-
-const PREVIEW_DEFAULT_FONT_STYLE = `<style data-built-default-font>
-  html { font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
-</style>`
-
-function previewDocument(source) {
-  const trimmed = cleanHtmlInput(source).trim()
-
-  if (/<!doctype html|<html[\s>]/i.test(trimmed)) {
-    if (/<\/head>/i.test(trimmed) && !/data-built-default-font/i.test(trimmed)) {
-      return trimmed.replace(/<\/head>/i, `${PREVIEW_DEFAULT_FONT_STYLE}\n</head>`)
-    }
-
-    return trimmed
-  }
-
-  return `<!doctype html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  ${PREVIEW_DEFAULT_FONT_STYLE}
-</head>
-<body>
-${trimmed}
-</body>
-</html>`
 }
 
 function readCollapsedFolders() {
@@ -1221,80 +1118,22 @@ export default function App() {
                 </button>
               </div>
               <div className="path-actions">
-                <div className="settings-control" ref={settingsMenuRef}>
-                  <button
-                    className="settings-trigger"
-                    type="button"
-                    onClick={() => {
-                      setIsDomainMenuOpen(false)
-                      setIsSettingsMenuOpen((current) => !current)
-                    }}
-                    aria-label={`Settings for ${activeDomain}`}
-                    aria-expanded={isSettingsMenuOpen}
-                  >
-                    <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true">
-                      <circle cx="12" cy="12" r="3" />
-                      <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-4V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H2.8v-4H3a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1a1.7 1.7 0 0 0 1.9.3A1.7 1.7 0 0 0 10 3v-.2h4V3a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v4H21a1.7 1.7 0 0 0-1.6 1Z" />
-                    </svg>
-                  </button>
-                  {isSettingsMenuOpen ? (
-                    <div className="settings-menu">
-                      <div className="domain-settings-heading">
-                        <span className="domain-settings-favicon">
-                          {domainSettings.faviconUrl ? <img src={domainSettings.faviconUrl} alt="" /> : <span aria-hidden="true">?</span>}
-                        </span>
-                        <span>
-                          <strong>Settings</strong>
-                          <small>{activeDomain}</small>
-                        </span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIsSettingsMenuOpen(false)
-                          faviconInputRef.current?.click()
-                        }}
-                      >
-                        <span>Choose favicon</span>
-                        <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-                          <path d="M12 5v14M5 12h14" />
-                        </svg>
-                      </button>
-                      <div className="favicon-url-control">
-                        <input
-                          value={faviconUrlDraft}
-                          onChange={(event) => setFaviconUrlDraft(event.target.value)}
-                          onKeyDown={(event) => {
-                            if (event.key === "Enter") saveFaviconUrl(faviconUrlDraft)
-                          }}
-                          placeholder="Image URL"
-                          aria-label="Favicon image URL"
-                        />
-                        <button type="button" onClick={() => saveFaviconUrl(faviconUrlDraft)}>Apply</button>
-                      </div>
-                      {domainSettings.recentFavicons?.length ? (
-                        <div className="recent-favicons">
-                          <span>Recent</span>
-                          <div>
-                            {domainSettings.recentFavicons.map((favicon) => (
-                              <button
-                                className={favicon.faviconUrl === domainSettings.faviconUrl ? "is-current" : ""}
-                                type="button"
-                                onClick={() => saveFaviconUrl(favicon.faviconUrl)}
-                                aria-label="Use recent favicon"
-                                title={favicon.faviconUrl}
-                                key={`${favicon.faviconUrl}-${favicon.createdAt}`}
-                              >
-                                <img src={favicon.faviconUrl} alt="" />
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      ) : null}
-                      {faviconStatus ? <span className="domain-settings-status">{faviconStatus}</span> : null}
-                    </div>
-                  ) : null}
-                </div>
+                <SettingsMenu
+                  activeDomain={activeDomain}
+                  domainSettings={domainSettings}
+                  faviconStatus={faviconStatus}
+                  faviconUrlDraft={faviconUrlDraft}
+                  isOpen={isSettingsMenuOpen}
+                  menuRef={settingsMenuRef}
+                  onChooseFavicon={() => {
+                    setIsSettingsMenuOpen(false)
+                    faviconInputRef.current?.click()
+                  }}
+                  onCloseDomainMenu={() => setIsDomainMenuOpen(false)}
+                  onSaveFaviconUrl={saveFaviconUrl}
+                  onSetFaviconUrlDraft={setFaviconUrlDraft}
+                  onToggle={() => setIsSettingsMenuOpen((current) => !current)}
+                />
                 <button className={`button copy-action ${copyStatus ? "is-copied" : ""}`} type="button" onClick={copyPublicUrl} aria-keyshortcuts="u">
                   {copyStatus ? "Copied" : "Copy URL"}
                 </button>
