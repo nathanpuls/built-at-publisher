@@ -258,6 +258,11 @@ export default function App() {
   useEffect(() => {
     function closeMenus(event) {
       if (event.key === "Escape") {
+        if (isTrashOpen) {
+          event.preventDefault()
+          setIsTrashOpen(false)
+          if (document.activeElement instanceof HTMLElement) document.activeElement.blur()
+        }
         setIsDomainMenuOpen(false)
         setIsSettingsMenuOpen(false)
         setIsCopyMenuOpen(false)
@@ -277,7 +282,7 @@ export default function App() {
       document.removeEventListener("pointerdown", closeMenus)
       document.removeEventListener("keydown", closeMenus)
     }
-  }, [])
+  }, [isTrashOpen])
 
   useEffect(() => {
     function warnAboutUnsavedChanges(event) {
@@ -541,6 +546,39 @@ export default function App() {
     } catch (deleteError) {
       setError(deleteError.message)
       setStatus("")
+    }
+  }
+
+  async function deleteFolder(folderPages) {
+    if (!folderPages.length) return
+    flushPendingSave()
+    setError("")
+    setStatus("")
+
+    try {
+      const deleted = await Promise.all(folderPages.map(async (page) => {
+        const response = await fetch(`/api/pages/${page.id}`, { method: "DELETE" })
+        const data = await readJsonResponse(response)
+        if (!response.ok) throw new Error(data.error || "Could not delete folder.")
+        return { ...page, deletedAt: data.deletedAt }
+      }))
+      const deletedIds = new Set(deleted.map((page) => page.id))
+
+      setDeletedPage(null)
+      setTrashPages((current) => [...deleted, ...current.filter((page) => !deletedIds.has(page.id))])
+      setPages((current) => {
+        const next = current.filter((page) => !deletedIds.has(page.id))
+
+        if (deletedIds.has(selectedId)) {
+          const nextSelected = next[0]?.id || null
+          setSelectedId(nextSelected)
+          window.history.replaceState({}, "", nextSelected ? adminUrlForPage(next[0]) : adminHomeUrl(activeDomain))
+        }
+
+        return next
+      })
+    } catch (deleteError) {
+      setError(deleteError.message)
     }
   }
 
@@ -944,6 +982,7 @@ export default function App() {
         onClearSearch={clearSearch}
         onCreatePage={createPage}
         onDeletePermanently={permanentlyDeleteFromTrash}
+        onDeleteFolder={deleteFolder}
         onDeletePage={deleteRoute}
         onResetAdminHome={resetAdminHome}
         onRestorePage={restoreFromTrash}
@@ -1014,8 +1053,8 @@ export default function App() {
                   }}
                 />
                 <div className="copy-url-control" ref={copyMenuRef}>
-                  <button className={`button copy-action ${copyStatus ? "is-copied" : ""}`} type="button" onClick={copyPublicUrl} aria-keyshortcuts="u">
-                    {copyStatus ? "Copied" : "Copy URL"}
+                  <button className={`button copy-action ${copyStatus || permanentCopyStatus ? "is-copied" : ""}`} type="button" onClick={copyPublicUrl} aria-keyshortcuts="u">
+                    {copyStatus || permanentCopyStatus ? "Copied" : "Copy URL"}
                   </button>
                   <button
                     className="copy-menu-trigger"

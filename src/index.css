@@ -57,6 +57,17 @@ button,
   text-decoration: none;
 }
 
+button:focus,
+.button:focus {
+  outline: none;
+}
+
+button:focus-visible,
+.button:focus-visible {
+  outline: 2px solid #c7ccd1;
+  outline-offset: 2px;
+}
+
 .primary {
   border-color: var(--text);
   background: var(--text);
@@ -504,6 +515,12 @@ textarea {
   color: var(--text);
 }
 
+.trash-toggle:focus-visible {
+  outline: none;
+  background: var(--soft);
+  box-shadow: inset 0 0 0 1px #c7ccd1;
+}
+
 .trash-count {
   min-width: 20px;
   margin-left: auto;
@@ -542,6 +559,35 @@ textarea {
   font-weight: 700;
   line-height: 1;
   text-align: left;
+}
+
+.folder-heading {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 28px;
+  align-items: center;
+  gap: 2px;
+}
+
+.delete-folder {
+  width: 28px;
+  min-height: 28px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+}
+
+.delete-folder:hover {
+  background: var(--soft);
+  color: var(--danger);
+}
+
+.delete-folder svg {
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
 }
 
 .folder-label:hover {
@@ -804,11 +850,13 @@ textarea {
 
 .copy-url-control {
   position: relative;
+  flex: 0 0 auto;
   display: flex;
 }
 
 .copy-url-control .copy-action {
   border-radius: 8px 0 0 8px;
+  white-space: nowrap;
 }
 
 .copy-menu-trigger {

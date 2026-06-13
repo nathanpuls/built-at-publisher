@@ -103,6 +103,7 @@ export function Sidebar({
   isTrashOpen,
   onClearSearch,
   onCreatePage,
+  onDeleteFolder,
   onDeletePermanently,
   onDeletePage,
   onResetAdminHome,
@@ -200,10 +201,21 @@ export function Sidebar({
               <PageList pages={[entry.page]} selectedId={selectedId} onSelect={onSelectPage} onDelete={onDeletePage} key={entry.page.id} />
             ) : (
               <div className={`folder-group ${collapsedFolders.has(entry.folder) ? "is-collapsed" : ""}`} key={entry.folder}>
-                <button className="folder-label" type="button" onClick={() => onToggleFolder(entry.folder)} aria-expanded={!collapsedFolders.has(entry.folder)}>
-                  <span className="folder-caret" aria-hidden="true">›</span>
-                  <span>{entry.folder}</span>
-                </button>
+                <div className="folder-heading">
+                  <button className="folder-label" type="button" onClick={() => onToggleFolder(entry.folder)} aria-expanded={!collapsedFolders.has(entry.folder)}>
+                    <span className="folder-caret" aria-hidden="true">›</span>
+                    <span>{entry.folder}</span>
+                  </button>
+                  <button className="delete-folder" type="button" data-tooltip="Delete folder paths" aria-label={`Delete ${entry.folder} folder paths`} onClick={() => onDeleteFolder(entry.pages)}>
+                    <svg aria-hidden="true" viewBox="0 0 24 24" width="15" height="15">
+                      <path d="M3 6h18" />
+                      <path d="M8 6V4h8v2" />
+                      <path d="M19 6l-1 14H6L5 6" />
+                      <path d="M10 11v5" />
+                      <path d="M14 11v5" />
+                    </svg>
+                  </button>
+                </div>
                 <div className="folder-items">
                   <PageList pages={entry.pages} selectedId={selectedId} onSelect={onSelectPage} onDelete={onDeletePage} />
                 </div>
