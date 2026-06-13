@@ -810,21 +810,36 @@ export default function App() {
 
     const entries = []
     const folders = new Map()
+    const folderNames = new Set(filteredPages.map(folderName).filter(Boolean))
 
     filteredPages.forEach((page) => {
       const folder = folderName(page)
-      if (!folder) {
+      const rootFolder = !folder && folderNames.has(displayPath(page.path)) ? displayPath(page.path) : ""
+      const targetFolder = folder || rootFolder
+
+      if (!targetFolder) {
         entries.push({ type: "page", page, timestamp: pageTimestamp(page) })
         return
       }
 
-      if (!folders.has(folder)) folders.set(folder, [])
-      folders.get(folder).push(page)
+      if (!folders.has(targetFolder)) folders.set(targetFolder, [])
+      folders.get(targetFolder).push(page)
     })
 
     folders.forEach((folderPages, folder) => {
-      folderPages.sort(sortPagesNewestFirst)
-      entries.push({ type: "folder", folder, pages: folderPages, timestamp: pageTimestamp(folderPages[0]) })
+      folderPages.sort((a, b) => {
+        const aIsRoot = displayPath(a.path) === folder
+        const bIsRoot = displayPath(b.path) === folder
+
+        if (aIsRoot !== bIsRoot) return aIsRoot ? -1 : 1
+        return sortPagesNewestFirst(a, b)
+      })
+      entries.push({
+        type: "folder",
+        folder,
+        pages: folderPages,
+        timestamp: Math.max(...folderPages.map(pageTimestamp)),
+      })
     })
 
     return entries.sort((a, b) => b.timestamp - a.timestamp)
