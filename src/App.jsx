@@ -276,11 +276,19 @@ export default function App() {
       }
     }
 
-    document.addEventListener("pointerdown", closeMenus)
+    function closeMenusOnWindowBlur() {
+      setIsDomainMenuOpen(false)
+      setIsSettingsMenuOpen(false)
+      setIsCopyMenuOpen(false)
+    }
+
+    document.addEventListener("pointerdown", closeMenus, true)
     document.addEventListener("keydown", closeMenus)
+    window.addEventListener("blur", closeMenusOnWindowBlur)
     return () => {
-      document.removeEventListener("pointerdown", closeMenus)
+      document.removeEventListener("pointerdown", closeMenus, true)
       document.removeEventListener("keydown", closeMenus)
+      window.removeEventListener("blur", closeMenusOnWindowBlur)
     }
   }, [isTrashOpen])
 
