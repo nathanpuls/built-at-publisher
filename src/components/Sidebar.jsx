@@ -7,7 +7,6 @@ import {
 } from "../lib/pages"
 
 function typeLabel(type) {
-  if (type === "auto") return "Auto"
   if (type === "redirect") return "Link"
   if (type === "iframe") return "Iframe"
   if (type === "html") return "HTML"
@@ -15,6 +14,8 @@ function typeLabel(type) {
 }
 
 function TypeMark({ type }) {
+  if (!type) return null
+
   if (type === "redirect") {
     return (
       <span className="kind" data-tooltip="Link">
@@ -26,12 +27,15 @@ function TypeMark({ type }) {
     )
   }
 
-  return <span className="kind" data-tooltip={typeLabel(type)}>{type === "auto" ? "AU" : type === "html" ? "</>" : type === "iframe" ? "IF" : "MD"}</span>
+  return <span className="kind" data-tooltip={typeLabel(type)}>{type === "html" ? "</>" : type === "iframe" ? "IF" : "MD"}</span>
 }
 
 function PageList({ pages, selectedId, onSelect, onDelete }) {
   return pages.map((page) => {
-    const sourceType = page.sourceType || detectSource(page.source)
+    const source = String(page.source || "")
+    const sourceType = page.sourceType === "auto"
+      ? (source.trim() ? detectSource(source) : "")
+      : (page.sourceType || (source.trim() ? detectSource(source) : ""))
 
     return (
       <div className={`item ${page.id === selectedId ? "is-active" : ""}`} data-id={page.id} key={page.id}>
