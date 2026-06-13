@@ -204,6 +204,10 @@ export function Sidebar({
                 <div className="folder-heading">
                   <button className="folder-label" type="button" onClick={() => onToggleFolder(entry.folder)} aria-expanded={!collapsedFolders.has(entry.folder)}>
                     <span className="folder-caret" aria-hidden="true">›</span>
+                    <svg className="folder-icon" aria-hidden="true" viewBox="0 0 24 24" width="15" height="15">
+                      <path d="M3 6.5h6l2 2h10v9.5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z" />
+                      <path d="M3 9h18" />
+                    </svg>
                     <span>{entry.folder}</span>
                   </button>
                   <button className="delete-folder" type="button" data-tooltip="Delete folder paths" aria-label={`Delete ${entry.folder} folder paths`} onClick={() => onDeleteFolder(entry.pages)}>
