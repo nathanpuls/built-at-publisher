@@ -383,6 +383,10 @@ h1 {
   border-bottom: 1px solid var(--line);
 }
 
+.search-row.is-hidden {
+  display: none;
+}
+
 .search-control {
   position: relative;
 }
@@ -449,6 +453,104 @@ textarea {
   min-height: 0;
   overflow: auto;
   padding: 6px;
+}
+
+.trash-heading {
+  padding: 8px 8px 12px;
+  display: grid;
+  gap: 3px;
+}
+
+.trash-heading strong {
+  font-size: 14px;
+}
+
+.trash-heading span,
+.trash-item-copy small {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.trash-item {
+  min-height: 58px;
+  padding: 6px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto 28px;
+  align-items: center;
+  gap: 5px;
+  border-radius: 8px;
+}
+
+.trash-item:hover {
+  background: var(--soft);
+}
+
+.trash-item-copy {
+  min-width: 0;
+  display: grid;
+  gap: 5px;
+}
+
+.trash-item-copy strong {
+  overflow: hidden;
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.trash-item button {
+  min-height: 28px;
+  padding: 0 8px;
+  font-size: 12px;
+}
+
+.trash-item .trash-delete {
+  width: 28px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+}
+
+.trash-item .trash-delete:hover {
+  background: #fff;
+  color: var(--danger);
+}
+
+.trash-item svg,
+.trash-toggle svg {
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+}
+
+.trash-toggle {
+  min-height: 44px;
+  margin: 6px;
+  padding: 0 10px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  justify-content: flex-start;
+  gap: 8px;
+}
+
+.trash-toggle:hover,
+.trash-toggle.is-active {
+  background: var(--soft);
+  color: var(--text);
+}
+
+.trash-count {
+  min-width: 20px;
+  margin-left: auto;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: var(--line);
+  font-size: 11px;
+  text-align: center;
 }
 
 .empty-state,

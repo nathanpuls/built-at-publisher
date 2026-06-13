@@ -57,6 +57,36 @@ function PageList({ pages, selectedId, onSelect, onDelete }) {
   })
 }
 
+function daysRemaining(deletedAt) {
+  const expiresAt = Date.parse(deletedAt || "") + (30 * 24 * 60 * 60 * 1000)
+  return Math.max(0, Math.ceil((expiresAt - Date.now()) / (24 * 60 * 60 * 1000)))
+}
+
+function TrashList({ pages, onDeletePermanently, onRestore }) {
+  if (!pages.length) {
+    return <p className="empty-state">Trash is empty</p>
+  }
+
+  return pages.map((page) => (
+    <div className="trash-item" key={page.id}>
+      <span className="trash-item-copy">
+        <strong>{adminPathLabel(page)}</strong>
+        <small>{daysRemaining(page.deletedAt)} days remaining</small>
+      </span>
+      <button type="button" onClick={() => onRestore(page)}>Restore</button>
+      <button className="trash-delete" type="button" onClick={() => onDeletePermanently(page)} aria-label={`Permanently delete ${adminPathLabel(page)}`}>
+        <svg aria-hidden="true" viewBox="0 0 24 24" width="15" height="15">
+          <path d="M3 6h18" />
+          <path d="M8 6V4h8v2" />
+          <path d="M19 6l-1 14H6L5 6" />
+          <path d="M10 11v5" />
+          <path d="M14 11v5" />
+        </svg>
+      </button>
+    </div>
+  ))
+}
+
 export function Sidebar({
   activeDomain,
   collapsedFolders,
@@ -65,20 +95,26 @@ export function Sidebar({
   filteredPages,
   isDomainMenuOpen,
   isLoading,
+  isTrashLoading,
+  isTrashOpen,
   onClearSearch,
   onCreatePage,
+  onDeletePermanently,
   onDeletePage,
   onResetAdminHome,
+  onRestorePage,
   onSelectPage,
   onSwitchDomain,
   onToggleDomainMenu,
   onToggleFolder,
+  onToggleTrash,
   onUploadFavicon,
   query,
   searchInputRef,
   selectedId,
   setQuery,
   sidebarEntries,
+  trashPages,
 }) {
   return (
     <aside className="sidebar">
@@ -118,7 +154,7 @@ export function Sidebar({
         <button className="primary" type="button" onClick={onCreatePage} aria-label="New path" aria-keyshortcuts="n">New</button>
       </header>
 
-      <div className="search-row">
+      <div className={`search-row ${isTrashOpen ? "is-hidden" : ""}`}>
         <div className="search-control">
           <input
             ref={searchInputRef}
@@ -144,22 +180,43 @@ export function Sidebar({
       </div>
 
       <div className="items">
-        {isLoading ? <p className="empty-state">Loading paths</p> : null}
-        {!isLoading && filteredPages.length === 0 ? <p className="empty-state">No paths found</p> : null}
-        {sidebarEntries.map((entry) => entry.type === "page" ? (
-          <PageList pages={[entry.page]} selectedId={selectedId} onSelect={onSelectPage} onDelete={onDeletePage} key={entry.page.id} />
-        ) : (
-          <div className={`folder-group ${collapsedFolders.has(entry.folder) ? "is-collapsed" : ""}`} key={entry.folder}>
-            <button className="folder-label" type="button" onClick={() => onToggleFolder(entry.folder)} aria-expanded={!collapsedFolders.has(entry.folder)}>
-              <span className="folder-caret" aria-hidden="true">›</span>
-              <span>{entry.folder}</span>
-            </button>
-            <div className="folder-items">
-              <PageList pages={entry.pages} selectedId={selectedId} onSelect={onSelectPage} onDelete={onDeletePage} />
+        {isTrashOpen ? (
+          <>
+            <div className="trash-heading">
+              <strong>Trash</strong>
+              <span>Deleted after 30 days</span>
             </div>
-          </div>
-        ))}
+            {isTrashLoading ? <p className="empty-state">Loading trash</p> : <TrashList pages={trashPages} onRestore={onRestorePage} onDeletePermanently={onDeletePermanently} />}
+          </>
+        ) : (
+          <>
+            {isLoading ? <p className="empty-state">Loading paths</p> : null}
+            {!isLoading && filteredPages.length === 0 ? <p className="empty-state">No paths found</p> : null}
+            {sidebarEntries.map((entry) => entry.type === "page" ? (
+              <PageList pages={[entry.page]} selectedId={selectedId} onSelect={onSelectPage} onDelete={onDeletePage} key={entry.page.id} />
+            ) : (
+              <div className={`folder-group ${collapsedFolders.has(entry.folder) ? "is-collapsed" : ""}`} key={entry.folder}>
+                <button className="folder-label" type="button" onClick={() => onToggleFolder(entry.folder)} aria-expanded={!collapsedFolders.has(entry.folder)}>
+                  <span className="folder-caret" aria-hidden="true">›</span>
+                  <span>{entry.folder}</span>
+                </button>
+                <div className="folder-items">
+                  <PageList pages={entry.pages} selectedId={selectedId} onSelect={onSelectPage} onDelete={onDeletePage} />
+                </div>
+              </div>
+            ))}
+          </>
+        )}
       </div>
+      <button className={`trash-toggle ${isTrashOpen ? "is-active" : ""}`} type="button" onClick={onToggleTrash}>
+        <svg aria-hidden="true" viewBox="0 0 24 24" width="16" height="16">
+          <path d="M3 6h18" />
+          <path d="M8 6V4h8v2" />
+          <path d="M19 6l-1 14H6L5 6" />
+        </svg>
+        <span>{isTrashOpen ? "Back to paths" : "Trash"}</span>
+        {!isTrashOpen && trashPages.length ? <span className="trash-count">{trashPages.length}</span> : null}
+      </button>
     </aside>
   )
 }

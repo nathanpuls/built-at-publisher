@@ -592,6 +592,7 @@ function pageRowToResponse(row) {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     publishedAt: row.published_at,
+    deletedAt: row.deleted_at,
   }
 }
 
@@ -676,7 +677,7 @@ async function savePageData(body, env, publish = false) {
     .bind(id, slug, title, hash, html, docJson, status, createdAt, now, publishedAt, source, sourceType, path, domain)
     .run()
 
-  const row = await env.DB.prepare("SELECT * FROM pages WHERE id = ?").bind(id).first()
+  const row = await env.DB.prepare("SELECT * FROM pages WHERE id = ? AND deleted_at IS NULL").bind(id).first()
   return pageRowToResponse(row)
 }
 
@@ -799,7 +800,7 @@ async function getPage(id, env) {
     return json({ error: "DB binding is not configured." }, { status: 500 })
   }
 
-  const row = await env.DB.prepare("SELECT * FROM pages WHERE id = ?").bind(id).first()
+  const row = await env.DB.prepare("SELECT * FROM pages WHERE id = ? AND deleted_at IS NULL").bind(id).first()
 
   if (!row) {
     return json({ error: "Page not found." }, { status: 404 })
@@ -813,7 +814,7 @@ async function updatePage(request, env, id) {
     return json({ error: "DB binding is not configured." }, { status: 500 })
   }
 
-  const existing = await env.DB.prepare("SELECT * FROM pages WHERE id = ?").bind(id).first()
+  const existing = await env.DB.prepare("SELECT * FROM pages WHERE id = ? AND deleted_at IS NULL").bind(id).first()
 
   if (!existing) {
     return json({ error: "Page not found." }, { status: 404 })
@@ -854,7 +855,7 @@ async function updatePage(request, env, id) {
       return json({ error: `${displayRoutePath(path)} starts with a reserved path.` }, { status: 400 })
     }
 
-    const pathConflict = await env.DB.prepare("SELECT id FROM pages WHERE domain = ? AND path = ? AND id <> ?")
+    const pathConflict = await env.DB.prepare("SELECT id FROM pages WHERE domain = ? AND path = ? AND id <> ? AND deleted_at IS NULL")
       .bind(domain, path, id)
       .first()
 
@@ -864,7 +865,7 @@ async function updatePage(request, env, id) {
   }
 
   if (body.isHome) {
-    await env.DB.prepare("UPDATE pages SET is_home = 0 WHERE domain = ? AND is_home = 1").bind(domain).run()
+    await env.DB.prepare("UPDATE pages SET is_home = 0 WHERE domain = ? AND is_home = 1 AND deleted_at IS NULL").bind(domain).run()
   }
 
   await env.DB.prepare(
@@ -898,15 +899,91 @@ async function deletePage(env, id) {
     return json({ error: "DB binding is not configured." }, { status: 500 })
   }
 
-  const existing = await env.DB.prepare("SELECT id FROM pages WHERE id = ?").bind(id).first()
+  const existing = await env.DB.prepare("SELECT id FROM pages WHERE id = ? AND deleted_at IS NULL").bind(id).first()
 
   if (!existing) {
     return json({ error: "Page not found." }, { status: 404 })
   }
 
-  await env.DB.prepare("DELETE FROM pages WHERE id = ?").bind(id).run()
+  const deletedAt = new Date().toISOString()
+  await env.DB.prepare("UPDATE pages SET deleted_at = ? WHERE id = ?").bind(deletedAt, id).run()
 
+  return json({ ok: true, id, deletedAt })
+}
+
+async function listTrash(env, domain = DEFAULT_DOMAIN) {
+  if (!env.DB) {
+    return json({ error: "DB binding is not configured." }, { status: 500 })
+  }
+
+  await purgeExpiredTrash(env)
+
+  const result = await env.DB.prepare(
+    `SELECT * FROM pages
+     WHERE domain = ? AND deleted_at IS NOT NULL
+     ORDER BY deleted_at DESC
+     LIMIT 100`
+  ).bind(normalizeDomain(domain)).all()
+
+  return json({ pages: (result.results || []).map(pageRowToResponse) })
+}
+
+async function restorePage(env, id) {
+  if (!env.DB) {
+    return json({ error: "DB binding is not configured." }, { status: 500 })
+  }
+
+  const page = await env.DB.prepare("SELECT * FROM pages WHERE id = ? AND deleted_at IS NOT NULL").bind(id).first()
+
+  if (!page) {
+    return json({ error: "Deleted page not found." }, { status: 404 })
+  }
+
+  if (page.path) {
+    const conflict = await env.DB.prepare(
+      "SELECT id FROM pages WHERE domain = ? AND path = ? AND deleted_at IS NULL"
+    ).bind(normalizeDomain(page.domain), page.path).first()
+
+    if (conflict) {
+      return json({ error: `${displayRoutePath(page.path)} is already used. Remove or rename that path before restoring.` }, { status: 409 })
+    }
+  }
+
+  const now = new Date().toISOString()
+
+  if (page.is_home) {
+    await env.DB.prepare(
+      "UPDATE pages SET is_home = 0 WHERE domain = ? AND is_home = 1 AND deleted_at IS NULL"
+    ).bind(normalizeDomain(page.domain)).run()
+  }
+
+  await env.DB.prepare("UPDATE pages SET deleted_at = NULL, updated_at = ? WHERE id = ?").bind(now, id).run()
+  const restored = await env.DB.prepare("SELECT * FROM pages WHERE id = ?").bind(id).first()
+
+  return json(pageRowToResponse(restored))
+}
+
+async function permanentlyDeletePage(env, id) {
+  if (!env.DB) {
+    return json({ error: "DB binding is not configured." }, { status: 500 })
+  }
+
+  const page = await env.DB.prepare("SELECT id FROM pages WHERE id = ? AND deleted_at IS NOT NULL").bind(id).first()
+
+  if (!page) {
+    return json({ error: "Deleted page not found." }, { status: 404 })
+  }
+
+  await env.DB.prepare("DELETE FROM pages WHERE id = ? AND deleted_at IS NOT NULL").bind(id).run()
   return json({ ok: true, id })
+}
+
+async function purgeExpiredTrash(env) {
+  if (!env.DB) return
+
+  await env.DB.prepare(
+    "DELETE FROM pages WHERE deleted_at IS NOT NULL AND datetime(deleted_at) <= datetime('now', '-30 days')"
+  ).run()
 }
 
 async function renderPage(id, env) {
@@ -914,7 +991,7 @@ async function renderPage(id, env) {
     return new Response("DB binding is not configured.", { status: 500 })
   }
 
-  const row = await env.DB.prepare("SELECT * FROM pages WHERE id = ?").bind(id).first()
+  const row = await env.DB.prepare("SELECT * FROM pages WHERE id = ? AND deleted_at IS NULL").bind(id).first()
 
   if (!row) {
     return notFoundPage({
@@ -956,7 +1033,7 @@ async function renderHome(env, domain = DEFAULT_DOMAIN) {
 
   const row = await env.DB.prepare(
     `SELECT * FROM pages
-     WHERE domain = ? AND is_home = 1
+     WHERE domain = ? AND is_home = 1 AND deleted_at IS NULL
      ORDER BY updated_at DESC
      LIMIT 1`
   ).bind(normalizeDomain(domain)).first()
@@ -1004,7 +1081,7 @@ async function renderRoutePath(pathname, env, domain = DEFAULT_DOMAIN) {
   }
 
   const path = normalizeRoutePath(pathname)
-  const row = await env.DB.prepare("SELECT * FROM pages WHERE domain = ? AND path = ?")
+  const row = await env.DB.prepare("SELECT * FROM pages WHERE domain = ? AND path = ? AND deleted_at IS NULL")
     .bind(normalizeDomain(domain), path)
     .first()
 
@@ -1024,7 +1101,7 @@ async function listPages(env, domain = DEFAULT_DOMAIN) {
     `SELECT id, slug, title, status, markdown, source, source_type, path, domain, is_home,
       created_at AS createdAt, updated_at AS updatedAt, published_at AS publishedAt
      FROM pages
-     WHERE domain = ?
+     WHERE domain = ? AND deleted_at IS NULL
      ORDER BY updated_at DESC
      LIMIT 100`
   ).bind(normalizeDomain(domain)).all()
@@ -1091,6 +1168,21 @@ export default {
 
     if (url.pathname === "/api/pages" && request.method === "GET") {
       return listPages(env, url.searchParams.get("domain") || DEFAULT_DOMAIN)
+    }
+
+    if (url.pathname === "/api/trash" && request.method === "GET") {
+      return listTrash(env, url.searchParams.get("domain") || DEFAULT_DOMAIN)
+    }
+
+    const trashMatch = url.pathname.match(/^\/api\/trash\/([A-Za-z0-9_-]+)$/)
+    const trashRestoreMatch = url.pathname.match(/^\/api\/trash\/([A-Za-z0-9_-]+)\/restore$/)
+
+    if (trashRestoreMatch && request.method === "POST") {
+      return restorePage(env, trashRestoreMatch[1])
+    }
+
+    if (trashMatch && request.method === "DELETE") {
+      return permanentlyDeletePage(env, trashMatch[1])
     }
 
     const pageMatch = url.pathname.match(/^\/api\/pages\/([A-Za-z0-9_-]+)$/)
@@ -1174,5 +1266,8 @@ export default {
     }
 
     return new Response("Not found", { status: 404 })
+  },
+  scheduled(_controller, env, ctx) {
+    ctx.waitUntil(purgeExpiredTrash(env))
   },
 }

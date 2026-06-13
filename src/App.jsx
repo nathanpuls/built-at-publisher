@@ -79,6 +79,9 @@ export default function App() {
   const [pathError, setPathError] = useState("")
   const [isLoading, setIsLoading] = useState(true)
   const [deletedPage, setDeletedPage] = useState(null)
+  const [isTrashOpen, setIsTrashOpen] = useState(false)
+  const [isTrashLoading, setIsTrashLoading] = useState(false)
+  const [trashPages, setTrashPages] = useState([])
   const saveTimer = useRef(null)
   const pendingSave = useRef(null)
   const unsavedChangesRef = useRef(false)
@@ -136,6 +139,31 @@ export default function App() {
     }
 
     loadPages()
+    return () => {
+      cancelled = true
+    }
+  }, [activeDomain])
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadTrash() {
+      setIsTrashLoading(true)
+
+      try {
+        const response = await fetch(`/api/trash?domain=${encodeURIComponent(activeDomain)}`)
+        const data = await readJsonResponse(response)
+
+        if (!response.ok) throw new Error(data.error || "Could not load trash.")
+        if (!cancelled) setTrashPages(data.pages || [])
+      } catch (trashError) {
+        if (!cancelled) setError(trashError.message)
+      } finally {
+        if (!cancelled) setIsTrashLoading(false)
+      }
+    }
+
+    loadTrash()
     return () => {
       cancelled = true
     }
@@ -493,6 +521,7 @@ export default function App() {
       if (!response.ok) throw new Error(data.error || "Could not delete route.")
 
       setDeletedPage(page)
+      setTrashPages((current) => [{ ...page, deletedAt: data.deletedAt }, ...current.filter((entry) => entry.id !== page.id)])
       setPages((current) => {
         const next = current.filter((entry) => entry.id !== page.id)
 
@@ -517,42 +546,16 @@ export default function App() {
     setStatus("Restoring")
 
     try {
-      const response = await fetch("/api/pages", {
+      const response = await fetch(`/api/trash/${deletedPage.id}/restore`, {
         method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          id: deletedPage.id,
-          path: deletedPage.path,
-          source: deletedPage.source || "",
-          sourceType: deletedPage.sourceType,
-          domain: deletedPage.domain || activeDomain,
-          title: deletedPage.title || "Untitled",
-          status: deletedPage.status || "published",
-        }),
       })
       const page = await readJsonResponse(response)
 
       if (!response.ok) throw new Error(page.error || "Could not restore route.")
 
-      if (deletedPage.isHome) {
-        await fetch(`/api/pages/${page.id}`, {
-          method: "PATCH",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({
-            path: page.path,
-            source: page.source || "",
-            sourceType: page.sourceType,
-            domain: page.domain || activeDomain,
-            title: page.title || "Untitled",
-            status: page.status || "published",
-            isHome: true,
-          }),
-        })
-      }
-
       setPages((current) => [page, ...current.filter((entry) => entry.id !== page.id)]
-        .map((entry) => deletedPage.isHome && entry.id === page.id ? { ...entry, isHome: true } : entry)
         .sort(sortPagesNewestFirst))
+      setTrashPages((current) => current.filter((entry) => entry.id !== page.id))
       setSelectedId(page.id)
       setDeletedPage(null)
       setStatus("Restored")
@@ -560,6 +563,41 @@ export default function App() {
     } catch (restoreError) {
       setError(restoreError.message)
       setStatus("")
+    }
+  }
+
+  async function restoreFromTrash(pageToRestore) {
+    setError("")
+
+    try {
+      const response = await fetch(`/api/trash/${pageToRestore.id}/restore`, { method: "POST" })
+      const page = await readJsonResponse(response)
+
+      if (!response.ok) throw new Error(page.error || "Could not restore route.")
+
+      setPages((current) => [page, ...current.filter((entry) => entry.id !== page.id)].sort(sortPagesNewestFirst))
+      setTrashPages((current) => current.filter((entry) => entry.id !== page.id))
+      setDeletedPage((current) => current?.id === page.id ? null : current)
+    } catch (restoreError) {
+      setError(restoreError.message)
+    }
+  }
+
+  async function permanentlyDeleteFromTrash(pageToDelete) {
+    if (!window.confirm(`Permanently delete ${adminPathLabel(pageToDelete)}? This cannot be undone.`)) return
+
+    setError("")
+
+    try {
+      const response = await fetch(`/api/trash/${pageToDelete.id}`, { method: "DELETE" })
+      const data = await readJsonResponse(response)
+
+      if (!response.ok) throw new Error(data.error || "Could not permanently delete route.")
+
+      setTrashPages((current) => current.filter((entry) => entry.id !== pageToDelete.id))
+      setDeletedPage((current) => current?.id === pageToDelete.id ? null : current)
+    } catch (deleteError) {
+      setError(deleteError.message)
     }
   }
 
@@ -877,20 +915,26 @@ export default function App() {
         filteredPages={filteredPages}
         isDomainMenuOpen={isDomainMenuOpen}
         isLoading={isLoading}
+        isTrashLoading={isTrashLoading}
+        isTrashOpen={isTrashOpen}
         onClearSearch={clearSearch}
         onCreatePage={createPage}
+        onDeletePermanently={permanentlyDeleteFromTrash}
         onDeletePage={deleteRoute}
         onResetAdminHome={resetAdminHome}
+        onRestorePage={restoreFromTrash}
         onSelectPage={selectPage}
         onSwitchDomain={switchDomain}
         onToggleDomainMenu={() => setIsDomainMenuOpen((current) => !current)}
         onToggleFolder={toggleFolder}
+        onToggleTrash={() => setIsTrashOpen((current) => !current)}
         onUploadFavicon={uploadFavicon}
         query={query}
         searchInputRef={searchInputRef}
         selectedId={selectedId}
         setQuery={setQuery}
         sidebarEntries={sidebarEntries}
+        trashPages={trashPages}
       />
 
       <main className="workspace">

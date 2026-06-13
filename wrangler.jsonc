@@ -31,6 +31,9 @@
   "vars": {
     "PUBLIC_MEDIA_BASE_URL": "https://media.nathanpuls.com"
   },
+  "triggers": {
+    "crons": ["17 4 * * *"]
+  },
   "r2_buckets": [
     {
       "binding": "MEDIA_BUCKET",
