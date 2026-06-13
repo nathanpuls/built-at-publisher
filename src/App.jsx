@@ -1,77 +1,28 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { SettingsMenu } from "./components/SettingsMenu"
+import { Sidebar } from "./components/Sidebar"
 import { detectSource, previewDocument, redirectUrl, renderSource, titleFromSource } from "./lib/content"
+import {
+  DEFAULT_DOMAIN,
+  EDITABLE_DOMAINS,
+  adminHomeUrl,
+  adminPathLabel,
+  adminUrlForPage,
+  displayPath,
+  displayTitle,
+  folderName,
+  makePageId,
+  normalizePath,
+  pageTimestamp,
+  permanentPath,
+  publicUrl,
+  selectPageFromUrl,
+  sortPagesNewestFirst,
+} from "./lib/pages"
 
 const COLLAPSED_FOLDERS_KEY = "built-routes:collapsed-folders:v1"
 const CURRENT_BUILD_ASSET = document.querySelector('script[type="module"][src]')?.getAttribute("src") || ""
-const DEFAULT_DOMAIN = "built.at"
-const EDITABLE_DOMAINS = ["built.at", "nathanpuls.com"]
 const DELETE_UNDO_DURATION_MS = 10000
-
-function normalizePath(path) {
-  const trimmed = String(path || "").trim()
-
-  if (!trimmed) return ""
-
-  const segments = trimmed
-    .split("/")
-    .map((segment) => segment
-      .replace(/[^A-Za-z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, "")
-      .toLowerCase())
-    .filter(Boolean)
-
-  return segments.length ? `/${segments.join("/")}` : ""
-}
-
-function displayPath(path) {
-  return normalizePath(path).replace(/^\/+/, "")
-}
-
-function fallbackPath(page) {
-  return `/p/${page?.id || "unknown"}${page?.slug ? `/${page.slug}` : ""}`
-}
-
-function titleFromPath(path) {
-  const pathParts = displayPath(path).split("/").filter(Boolean)
-
-  return pathParts.at(-1) || ""
-}
-
-function publicPath(page) {
-  return page?.path || fallbackPath(page)
-}
-
-function publicUrl(page) {
-  const domain = page?.domain || DEFAULT_DOMAIN
-  return `https://${domain}${publicPath(page)}`
-}
-
-function permanentPath(page) {
-  return `p/${page?.id || "unknown"}`
-}
-
-function makePageId() {
-  return crypto.randomUUID().replace(/-/g, "").slice(0, 8)
-}
-
-function adminPathLabel(page) {
-  if (page?.path) return displayPath(page.path)
-  return page?.title || titleFromSource(page?.source || "") || "Untitled"
-}
-
-function displayTitle(page) {
-  const existingTitle = String(page?.title || "").trim()
-  const detectedSourceType = detectSource(page?.source || "")
-  const sourceType = page?.sourceType === "auto" ? detectedSourceType : (page?.sourceType || detectedSourceType)
-  const fallbackTitle = titleFromPath(page?.path)
-
-  if (sourceType === "html" && (!existingTitle || /^<|^!doctype\b/i.test(existingTitle))) {
-    return titleFromSource(page?.source || "", fallbackTitle)
-  }
-
-  return existingTitle || fallbackTitle || "Untitled"
-}
 
 function readCollapsedFolders() {
   try {
@@ -103,75 +54,6 @@ async function readJsonResponse(response) {
 
     throw new Error(summary ? `Server returned HTML instead of JSON: ${summary}` : "Server returned HTML instead of JSON.")
   }
-}
-
-function typeLabel(type) {
-  if (type === "auto") return "Auto"
-  if (type === "redirect") return "Link"
-  if (type === "iframe") return "Iframe"
-  if (type === "html") return "HTML"
-  return "Markdown"
-}
-
-function TypeMark({ type }) {
-  if (type === "redirect") {
-    return (
-      <span className="kind" data-tooltip="Link">
-        <svg aria-hidden="true" viewBox="0 0 24 24" width="14" height="14">
-          <path d="M10 13a5 5 0 0 0 7.1 0l2-2a5 5 0 0 0-7.1-7.1l-1.1 1.1" />
-          <path d="M14 11a5 5 0 0 0-7.1 0l-2 2a5 5 0 0 0 7.1 7.1l1.1-1.1" />
-        </svg>
-      </span>
-    )
-  }
-
-  return <span className="kind" data-tooltip={typeLabel(type)}>{type === "auto" ? "AU" : type === "html" ? "</>" : type === "iframe" ? "IF" : "MD"}</span>
-}
-
-function pageTimestamp(page) {
-  return Date.parse(page.updatedAt || page.createdAt || "") || 0
-}
-
-function sortPagesNewestFirst(a, b) {
-  return pageTimestamp(b) - pageTimestamp(a) || adminPathLabel(a).localeCompare(adminPathLabel(b))
-}
-
-function folderName(page) {
-  const path = displayPath(page.path)
-
-  if (!path.includes("/")) return ""
-
-  return path.split("/")[0]
-}
-
-function adminUrlForPage(page) {
-  const params = new URLSearchParams()
-
-  if (page?.domain && page.domain !== DEFAULT_DOMAIN) params.set("domain", page.domain)
-  if (page?.path) params.set("path", displayPath(page.path))
-  else if (page?.id) params.set("id", page.id)
-
-  return `/admin${params.toString() ? `?${params}` : ""}`
-}
-
-function adminHomeUrl(domain = DEFAULT_DOMAIN) {
-  return domain === DEFAULT_DOMAIN ? "/admin" : `/admin?domain=${encodeURIComponent(domain)}`
-}
-
-function selectPageFromUrl(pages) {
-  const params = new URLSearchParams(window.location.search)
-  const path = params.get("path")
-  const id = params.get("id")
-
-  if (path) {
-    const normalized = normalizePath(path)
-    const byPath = pages.find((page) => page.path === normalized)
-    if (byPath) return byPath.id
-  }
-
-  if (id && pages.some((page) => page.id === id)) return id
-
-  return pages[0]?.id || null
 }
 
 export default function App() {
@@ -987,88 +869,29 @@ export default function App() {
 
   return (
     <div className="admin-shell">
-      <aside className="sidebar">
-        <header className="sidebar-header">
-          <div className="domain-switcher" ref={domainMenuRef}>
-            <button
-              className="domain-menu-trigger"
-              type="button"
-              onClick={() => {
-                setIsDomainMenuOpen((current) => !current)
-              }}
-              aria-label="Switch domain"
-              aria-expanded={isDomainMenuOpen}
-            >
-              <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true">
-                <path d="M4 6h16M4 12h16M4 18h16" />
-              </svg>
-            </button>
-            <input ref={faviconInputRef} className="visually-hidden" type="file" accept="image/*" onChange={uploadFavicon} />
-            <button className="routes-home" type="button" onClick={resetAdminHome}>
-              {activeDomain}
-            </button>
-            {isDomainMenuOpen ? (
-              <div className="domain-menu">
-                {EDITABLE_DOMAINS.map((domain) => (
-                  <button
-                    className={domain === activeDomain ? "is-active" : ""}
-                    type="button"
-                    onClick={() => switchDomain(domain)}
-                    key={domain}
-                  >
-                    <span>{domain}</span>
-                    {domain === activeDomain ? <span aria-hidden="true">✓</span> : null}
-                  </button>
-                ))}
-              </div>
-            ) : null}
-          </div>
-          <button className="primary" type="button" onClick={createPage} aria-label="New path" aria-keyshortcuts="n">New</button>
-        </header>
-
-        <div className="search-row">
-          <div className="search-control">
-            <input
-              ref={searchInputRef}
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Escape" && query) {
-                  event.preventDefault()
-                  clearSearch()
-                }
-              }}
-              placeholder="Search paths and content"
-              aria-keyshortcuts="/ Escape"
-            />
-            {query ? (
-              <button className="clear-search" type="button" onClick={clearSearch} aria-label="Clear search" title="Clear search">
-                <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-                  <path d="m7 7 10 10M17 7 7 17" />
-                </svg>
-              </button>
-            ) : null}
-          </div>
-        </div>
-
-        <div className="items">
-          {isLoading ? <p className="empty-state">Loading paths</p> : null}
-          {!isLoading && filteredPages.length === 0 ? <p className="empty-state">No paths found</p> : null}
-          {sidebarEntries.map((entry) => entry.type === "page" ? (
-            <PageList pages={[entry.page]} selectedId={selectedId} onSelect={selectPage} onDelete={deleteRoute} key={entry.page.id} />
-          ) : (
-            <div className={`folder-group ${collapsedFolders.has(entry.folder) ? "is-collapsed" : ""}`} key={entry.folder}>
-              <button className="folder-label" type="button" onClick={() => toggleFolder(entry.folder)} aria-expanded={!collapsedFolders.has(entry.folder)}>
-                <span className="folder-caret" aria-hidden="true">›</span>
-                <span>{entry.folder}</span>
-              </button>
-              <div className="folder-items">
-                <PageList pages={entry.pages} selectedId={selectedId} onSelect={selectPage} onDelete={deleteRoute} />
-              </div>
-            </div>
-          ))}
-        </div>
-      </aside>
+      <Sidebar
+        activeDomain={activeDomain}
+        collapsedFolders={collapsedFolders}
+        domainMenuRef={domainMenuRef}
+        faviconInputRef={faviconInputRef}
+        filteredPages={filteredPages}
+        isDomainMenuOpen={isDomainMenuOpen}
+        isLoading={isLoading}
+        onClearSearch={clearSearch}
+        onCreatePage={createPage}
+        onDeletePage={deleteRoute}
+        onResetAdminHome={resetAdminHome}
+        onSelectPage={selectPage}
+        onSwitchDomain={switchDomain}
+        onToggleDomainMenu={() => setIsDomainMenuOpen((current) => !current)}
+        onToggleFolder={toggleFolder}
+        onUploadFavicon={uploadFavicon}
+        query={query}
+        searchInputRef={searchInputRef}
+        selectedId={selectedId}
+        setQuery={setQuery}
+        sidebarEntries={sidebarEntries}
+      />
 
       <main className="workspace">
         <header className="workspace-header">
@@ -1283,32 +1106,4 @@ export default function App() {
       ) : null}
     </div>
   )
-}
-
-function PageList({ pages, selectedId, onSelect, onDelete }) {
-  return pages.map((page) => {
-    const sourceType = page.sourceType || detectSource(page.source)
-
-    return (
-      <div className={`item ${page.id === selectedId ? "is-active" : ""}`} data-id={page.id} key={page.id}>
-        <button className="item-main" type="button" onClick={() => onSelect(page)}>
-          <span className="path-row">
-            <span className={`path ${page.path ? "" : "is-temporary"}`}>{adminPathLabel(page)}</span>
-            {page.isHome ? <span className="home-pill">Home</span> : null}
-          </span>
-          <span className="meta">{page.path ? displayTitle(page) : permanentPath(page)}</span>
-        </button>
-        <TypeMark type={sourceType} />
-        <button className="delete-route" type="button" data-tooltip="Delete path" aria-label={`Delete ${adminPathLabel(page)}`} onClick={() => onDelete(page)}>
-          <svg aria-hidden="true" viewBox="0 0 24 24" width="15" height="15">
-            <path d="M3 6h18" />
-            <path d="M8 6V4h8v2" />
-            <path d="M19 6l-1 14H6L5 6" />
-            <path d="M10 11v5" />
-            <path d="M14 11v5" />
-          </svg>
-        </button>
-      </div>
-    )
-  })
 }
