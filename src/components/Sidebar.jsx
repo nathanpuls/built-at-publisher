@@ -14,7 +14,7 @@ function typeLabel(type) {
 }
 
 function TypeMark({ type }) {
-  if (!type) return null
+  if (!type) return <span className="kind" aria-hidden="true" />
 
   if (type === "redirect") {
     return (
