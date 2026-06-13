@@ -640,6 +640,15 @@ textarea {
   justify-content: stretch;
 }
 
+.item-main:focus {
+  outline: none;
+}
+
+.item-main:focus-visible {
+  outline: 2px solid rgba(17, 24, 39, 0.18);
+  outline-offset: -2px;
+}
+
 .path-row {
   max-width: 100%;
   min-width: 0;
