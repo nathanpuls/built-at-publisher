@@ -1023,8 +1023,7 @@ export default function App() {
                 <div className="field-label source-label">
                   <span className="source-heading">
                     <span>Source</span>
-                    <select value={sourceMode} onChange={(event) => changeSourceType(event.target.value)} aria-label="Page mode">
-                      <option value="auto">{`Auto (${sourceType === "html" ? "HTML" : "Markdown"})`}</option>
+                    <select value={sourceMode === "auto" ? sourceType : sourceMode} onChange={(event) => changeSourceType(event.target.value)} aria-label="Page mode">
                       <option value="markdown">Markdown</option>
                       <option value="html">HTML</option>
                       <option value="redirect">Redirect</option>
