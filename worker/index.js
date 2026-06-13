@@ -79,7 +79,7 @@ function withFavicon(html, faviconUrl = "") {
 
 function withPageMetadata(html, { title = "", faviconUrl = "" } = {}) {
   let document = withFavicon(html, faviconUrl)
-  const titleTag = `<title>${escapeHtml(title || "Untitled")}</title>`
+  const titleTag = `<title>${escapeHtml(title)}</title>`
 
   if (/<title[^>]*>[\s\S]*?<\/title>/i.test(document)) {
     document = document.replace(/<title[^>]*>[\s\S]*?<\/title>/i, titleTag)
@@ -608,13 +608,10 @@ async function savePageData(body, env, publish = false) {
   const html = pageContent.html
   const path = normalizeRoutePath(body.path || "")
   const domain = normalizeDomain(body.domain)
-  const pathTitle = (pageContent.sourceType === "html" || (pageContent.sourceType === "auto" && looksLikeHtml(pageContent.source)))
-    ? titleFromRoutePath(path)
-    : ""
   const title = (
     typeof body.title === "string"
       ? body.title.trim()
-      : pageContent.title || pathTitle || titleFromHtml(html) || "Untitled"
+      : ""
   ).slice(0, 160)
   const slug = slugify(body.slug || title)
   const isBlankPage = !html && !pageContent.source
@@ -837,13 +834,10 @@ async function updatePage(request, env, id) {
     content: source,
   })
   const html = pageContent.html
-  const pathTitle = (pageContent.sourceType === "html" || (pageContent.sourceType === "auto" && looksLikeHtml(pageContent.source)))
-    ? titleFromRoutePath(path)
-    : ""
   const title = String(
     typeof body.title === "string"
       ? body.title.trim()
-      : pageContent.title || pathTitle || existing.title || "Untitled"
+      : existing.title || ""
   ).slice(0, 160)
   const slug = slugify(body.slug || title)
   const status = body.status || existing.status || "published"

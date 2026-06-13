@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { SettingsMenu } from "./components/SettingsMenu"
 import { Sidebar } from "./components/Sidebar"
-import { detectSource, previewDocument, redirectUrl, renderSource, titleFromSource } from "./lib/content"
+import { detectSource, previewDocument, redirectUrl, renderSource } from "./lib/content"
 import {
   DEFAULT_DOMAIN,
   EDITABLE_DOMAINS,
@@ -755,7 +755,7 @@ export default function App() {
           content: draft.source,
           sourceType: draft.sourceType,
           domain: activeDomain,
-          title: draft.title || titleFromSource(draft.source),
+          title: draft.title,
           status: "published",
           allowDuplicate: true,
         }),

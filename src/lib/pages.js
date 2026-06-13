@@ -1,5 +1,3 @@
-import { detectSource, titleFromSource } from "./content"
-
 export const DEFAULT_DOMAIN = "built.at"
 export const EDITABLE_DOMAINS = ["built.at", "nathanpuls.com"]
 
@@ -27,12 +25,6 @@ function fallbackPath(page) {
   return `/p/${page?.id || "unknown"}${page?.slug ? `/${page.slug}` : ""}`
 }
 
-function titleFromPath(path) {
-  const pathParts = displayPath(path).split("/").filter(Boolean)
-
-  return pathParts.at(-1) || ""
-}
-
 export function publicPath(page) {
   return page?.path || fallbackPath(page)
 }
@@ -52,20 +44,11 @@ export function makePageId() {
 
 export function adminPathLabel(page) {
   if (page?.path) return displayPath(page.path)
-  return page?.title || titleFromSource(page?.source || "") || "Untitled"
+  return page?.title || ""
 }
 
 export function displayTitle(page) {
-  const existingTitle = String(page?.title || "").trim()
-  const detectedSourceType = detectSource(page?.source || "")
-  const sourceType = page?.sourceType === "auto" ? detectedSourceType : (page?.sourceType || detectedSourceType)
-  const fallbackTitle = titleFromPath(page?.path)
-
-  if (sourceType === "html" && (!existingTitle || /^<|^!doctype\b/i.test(existingTitle))) {
-    return titleFromSource(page?.source || "", fallbackTitle)
-  }
-
-  return existingTitle || fallbackTitle || "Untitled"
+  return String(page?.title || "").trim()
 }
 
 export function pageTimestamp(page) {
