@@ -75,6 +75,7 @@ export default function App() {
   const [sourceCopyStatus, setSourceCopyStatus] = useState("")
   const [sourcePasteStatus, setSourcePasteStatus] = useState("")
   const [homeStatus, setHomeStatus] = useState("")
+  const [editorView, setEditorView] = useState("split")
   const [error, setError] = useState("")
   const [pathError, setPathError] = useState("")
   const [isLoading, setIsLoading] = useState(true)
@@ -1012,7 +1013,12 @@ export default function App() {
         </header>
         {selectedPage ? (
           <div className="editor">
-            <div className="form-grid">
+            <div className="editor-view-switcher" role="group" aria-label="Editor view">
+              <button className={editorView === "source" ? "is-active" : ""} type="button" onClick={() => setEditorView("source")} aria-pressed={editorView === "source"}>Source</button>
+              <button className={editorView === "split" ? "is-active" : ""} type="button" onClick={() => setEditorView("split")} aria-pressed={editorView === "split"}>Split</button>
+              <button className={editorView === "preview" ? "is-active" : ""} type="button" onClick={() => setEditorView("preview")} aria-pressed={editorView === "preview"}>Preview</button>
+            </div>
+            <div className={`form-grid is-${editorView}-view`}>
               <div className="source-area">
                 <div className="field-label source-label">
                   <span className="source-heading">

@@ -886,6 +886,39 @@ textarea {
   min-height: 0;
   overflow: hidden;
   padding: 18px;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 8px;
+}
+
+.editor-view-switcher {
+  justify-self: end;
+  padding: 2px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--panel);
+  display: inline-flex;
+  gap: 2px;
+}
+
+.editor-view-switcher button {
+  min-height: 28px;
+  padding: 0 9px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.editor-view-switcher button:hover {
+  color: var(--text);
+}
+
+.editor-view-switcher button.is-active {
+  background: var(--soft);
+  color: var(--text);
+  font-weight: 650;
 }
 
 .blank-workspace {
@@ -953,6 +986,21 @@ textarea {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   grid-template-rows: minmax(0, 1fr);
   gap: 16px;
+}
+
+.form-grid.is-source-view,
+.form-grid.is-preview-view {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.form-grid.is-source-view .source-area,
+.form-grid.is-preview-view .preview {
+  grid-column: 1;
+}
+
+.form-grid.is-source-view .preview,
+.form-grid.is-preview-view .source-area {
+  display: none;
 }
 
 label {
@@ -1219,6 +1267,15 @@ input[aria-invalid="true"] {
   .editor {
     padding: 16px 14px 24px;
     overflow: visible;
+    grid-template-rows: auto auto;
+  }
+
+  .editor-view-switcher {
+    justify-self: stretch;
+  }
+
+  .editor-view-switcher button {
+    flex: 1 1 0;
   }
 
   .form-grid {
