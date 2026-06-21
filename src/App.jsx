@@ -19,6 +19,7 @@ import {
   selectPageFromUrl,
   sortPagesNewestFirst,
   titleFromPath,
+  titleFromPathInput,
 } from "./lib/pages"
 
 const COLLAPSED_FOLDERS_KEY = "built-routes:collapsed-folders:v1"
@@ -37,18 +38,26 @@ function writeCollapsedFolders(folders) {
   localStorage.setItem(COLLAPSED_FOLDERS_KEY, JSON.stringify(Array.from(folders)))
 }
 
-function suggestedDraftTitle(candidate) {
+function suggestedDraftTitle(candidate, currentDraft = null, pathChanged = false) {
   const sourceType = candidate.sourceType === "auto" ? detectSource(candidate.source) : candidate.sourceType
   const sourceTitle = titleFromSource(candidate.source, sourceType)
 
-  return sourceTitle || titleFromPath(candidate.path)
+  if (sourceTitle) return sourceTitle
+  if (pathChanged) return titleFromPathInput(candidate.path)
+
+  const currentSourceType = currentDraft?.sourceType === "auto" ? detectSource(currentDraft.source) : currentDraft?.sourceType
+  const currentSourceTitle = currentDraft ? titleFromSource(currentDraft.source, currentSourceType) : ""
+  const currentTitle = currentDraft?.title?.trim() || ""
+
+  if (currentTitle && currentTitle !== currentSourceTitle) return currentTitle
+  return titleFromPath(candidate.path)
 }
 
-function withSuggestedTitle(nextDraft, currentDraft) {
+function withSuggestedTitle(nextDraft, currentDraft, { pathChanged = false } = {}) {
   const titleIsAutomatic = currentDraft.titleMode !== "manual"
 
   return titleIsAutomatic
-    ? { ...nextDraft, title: suggestedDraftTitle(nextDraft), titleMode: "auto" }
+    ? { ...nextDraft, title: suggestedDraftTitle(nextDraft, currentDraft, pathChanged), titleMode: "auto" }
     : nextDraft
 }
 
@@ -1117,7 +1126,11 @@ export default function App() {
                     aria-invalid={Boolean(pathError)}
                     aria-describedby={pathError ? "path-error" : undefined}
                     aria-keyshortcuts="p"
-                    onChange={(event) => scheduleSave(withSuggestedTitle({ ...draft, path: event.target.value }, draft))}
+                    onChange={(event) => scheduleSave(withSuggestedTitle(
+                      { ...draft, path: event.target.value },
+                      draft,
+                      { pathChanged: true }
+                    ))}
                   />
                   {pathError ? <span className="field-error" id="path-error">{pathError}</span> : null}
                 </span>

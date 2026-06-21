@@ -227,9 +227,8 @@ function calculatedPageTitle(row) {
     : titleFromMarkdown(source)
 
   const explicitTitle = String(row.title || "").trim()
-  const titleMode = storedTitleMode(row)
 
-  return (titleMode === "manual" ? explicitTitle : "") || sourceTitle || titleFromRoutePath(row.path) || explicitTitle || ""
+  return explicitTitle || sourceTitle || titleFromRoutePath(row.path) || ""
 }
 
 function suggestedPageTitle(pageContent, path) {
@@ -673,7 +672,7 @@ async function savePageData(body, env, publish = false) {
       : ""
   ).slice(0, 160)
   const titleMode = body.titleMode === "manual" && requestedTitle ? "manual" : "auto"
-  const title = titleMode === "manual" ? requestedTitle : suggestedPageTitle(pageContent, path)
+  const title = requestedTitle || suggestedPageTitle(pageContent, path)
   const slug = slugify(body.slug || title)
   const isBlankPage = !html && !pageContent.source
   let hash = isBlankPage ? "" : await hashContent(html || pageContent.source)
@@ -910,7 +909,7 @@ async function updatePage(request, env, id) {
     : body.titleMode === "auto" || !requestedTitle
       ? "auto"
       : existingTitleMode
-  const title = titleMode === "manual" ? requestedTitle : suggestedPageTitle(pageContent, path)
+  const title = requestedTitle || suggestedPageTitle(pageContent, path)
   const slug = slugify(body.slug || title)
   const status = body.status || existing.status || "published"
   const now = new Date().toISOString()

@@ -30,6 +30,16 @@ export function titleFromPath(path) {
     .trim() || ""
 }
 
+export function titleFromPathInput(path) {
+  return String(path || "")
+    .trim()
+    .split("/")
+    .filter(Boolean)
+    .at(-1)
+    ?.replace(/\s+/g, " ")
+    .trim() || ""
+}
+
 function fallbackPath(page) {
   return `/p/${page?.id || "unknown"}${page?.slug ? `/${page.slug}` : ""}`
 }
