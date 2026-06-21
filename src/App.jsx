@@ -332,7 +332,21 @@ export default function App() {
       window.clearTimeout(tooltipTimer)
       tooltipTimer = null
       element?.classList.remove("is-tooltip-visible")
+      element?.style.removeProperty("--tooltip-left")
+      element?.style.removeProperty("--tooltip-top")
+      element?.removeAttribute("data-tooltip-placement")
       if (element === activeTooltip) activeTooltip = null
+    }
+
+    function positionTooltip(tooltip) {
+      const rect = tooltip.getBoundingClientRect()
+      const halfTooltipWidth = 100
+      const left = Math.max(halfTooltipWidth + 8, Math.min(window.innerWidth - halfTooltipWidth - 8, rect.left + (rect.width / 2)))
+      const showAbove = window.innerHeight - rect.bottom < 48 && rect.top > 48
+
+      tooltip.style.setProperty("--tooltip-left", `${left}px`)
+      tooltip.style.setProperty("--tooltip-top", `${showAbove ? rect.top - 7 : rect.bottom + 7}px`)
+      tooltip.dataset.tooltipPlacement = showAbove ? "above" : "below"
     }
 
     function handleTooltipOver(event) {
@@ -343,6 +357,7 @@ export default function App() {
       activeTooltip = tooltip
       tooltipTimer = window.setTimeout(() => {
         if (activeTooltip === tooltip && tooltip.matches(":hover")) {
+          positionTooltip(tooltip)
           tooltip.classList.add("is-tooltip-visible")
         }
       }, 500)

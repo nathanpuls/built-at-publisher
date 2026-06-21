@@ -1302,10 +1302,10 @@ label {
 }
 
 [data-tooltip]::after {
-  position: absolute;
-  left: 50%;
-  top: calc(100% + 7px);
-  z-index: 30;
+  position: fixed;
+  left: var(--tooltip-left, 50vw);
+  top: var(--tooltip-top, 0);
+  z-index: 1000;
   max-width: 190px;
   padding: 5px 7px;
   border-radius: 5px;
@@ -1323,30 +1323,18 @@ label {
   white-space: nowrap;
 }
 
+[data-tooltip][data-tooltip-placement="above"]::after {
+  transform: translate(-50%, calc(-100% + 2px));
+}
+
 [data-tooltip].is-tooltip-visible::after {
   opacity: 1;
   transform: translate(-50%, 0);
   visibility: visible;
 }
 
-.delete-route[data-tooltip]::after {
-  left: auto;
-  right: 0;
-  transform: translateY(-2px);
-}
-
-.delete-route[data-tooltip].is-tooltip-visible::after {
-  transform: translateY(0);
-}
-
-.source-field-actions .source-tool-action[data-tooltip]::after {
-  left: auto;
-  right: 0;
-  transform: translateY(-2px);
-}
-
-.source-field-actions .source-tool-action[data-tooltip].is-tooltip-visible::after {
-  transform: translateY(0);
+[data-tooltip][data-tooltip-placement="above"].is-tooltip-visible::after {
+  transform: translate(-50%, -100%);
 }
 
 input[aria-invalid="true"] {
