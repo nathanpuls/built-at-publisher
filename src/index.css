@@ -500,17 +500,49 @@ textarea {
 .trash-heading {
   padding: 8px 8px 12px;
   display: grid;
-  gap: 3px;
+  gap: 1px;
+}
+
+.trash-heading-title {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.trash-heading-title button {
+  width: 28px;
+  min-height: 28px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+}
+
+.trash-heading-title button:hover {
+  background: var(--soft);
+  color: var(--text);
+}
+
+.trash-heading-title svg {
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2;
 }
 
 .trash-heading strong {
   font-size: 14px;
 }
 
-.trash-heading span,
+.trash-heading > span,
 .trash-item-copy small {
   color: var(--muted);
   font-size: 11px;
+}
+
+.trash-heading > span {
+  padding-left: 32px;
 }
 
 .trash-item {

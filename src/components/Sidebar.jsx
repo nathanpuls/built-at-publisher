@@ -188,7 +188,14 @@ export function Sidebar({
         {isTrashOpen ? (
           <>
             <div className="trash-heading">
-              <strong>Trash</strong>
+              <div className="trash-heading-title">
+                <button type="button" onClick={onToggleTrash} aria-label="Back to paths" data-tooltip="Back to paths (Esc)">
+                  <svg aria-hidden="true" viewBox="0 0 24 24" width="17" height="17">
+                    <path d="m15 18-6-6 6-6" />
+                  </svg>
+                </button>
+                <strong>Trash</strong>
+              </div>
               <span>Deleted after 30 days</span>
             </div>
             {isTrashLoading ? <p className="empty-state">Loading trash</p> : <TrashList pages={trashPages} onRestore={onRestorePage} onDeletePermanently={onDeletePermanently} />}
@@ -228,15 +235,17 @@ export function Sidebar({
           </>
         )}
       </div>
-      <button className={`trash-toggle ${isTrashOpen ? "is-active" : ""}`} type="button" onClick={onToggleTrash}>
-        <svg aria-hidden="true" viewBox="0 0 24 24" width="16" height="16">
-          <path d="M3 6h18" />
-          <path d="M8 6V4h8v2" />
-          <path d="M19 6l-1 14H6L5 6" />
-        </svg>
-        <span>{isTrashOpen ? "Back to paths" : "Trash"}</span>
-        {!isTrashOpen && trashPages.length ? <span className="trash-count">{trashPages.length}</span> : null}
-      </button>
+      {!isTrashOpen ? (
+        <button className="trash-toggle" type="button" onClick={onToggleTrash}>
+          <svg aria-hidden="true" viewBox="0 0 24 24" width="16" height="16">
+            <path d="M3 6h18" />
+            <path d="M8 6V4h8v2" />
+            <path d="M19 6l-1 14H6L5 6" />
+          </svg>
+          <span>Trash</span>
+          {trashPages.length ? <span className="trash-count">{trashPages.length}</span> : null}
+        </button>
+      ) : null}
     </aside>
   )
 }
