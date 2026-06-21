@@ -599,6 +599,16 @@ export default function App() {
 
   async function deleteFolder(folderPages) {
     if (!folderPages.length) return
+
+    const folder = folderName(folderPages[0])
+    const pathCount = folderPages.length
+    const pathLabel = pathCount === 1 ? "path" : "paths"
+    const confirmed = window.confirm(
+      `Move the “${folder}” folder and its ${pathCount} ${pathLabel} to Trash?\n\nThey can be recovered for 30 days.`
+    )
+
+    if (!confirmed) return
+
     flushPendingSave()
     setError("")
     setStatus("")
