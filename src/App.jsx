@@ -84,6 +84,7 @@ async function readJsonResponse(response) {
 export default function App() {
   const initialDomain = new URLSearchParams(window.location.search).get("domain") || DEFAULT_DOMAIN
   const [activeDomain, setActiveDomain] = useState(EDITABLE_DOMAINS.includes(initialDomain) ? initialDomain : DEFAULT_DOMAIN)
+  const [account, setAccount] = useState(null)
   const [pages, setPages] = useState([])
   const [selectedId, setSelectedId] = useState(null)
   const [draft, setDraft] = useState({ path: "", source: "", sourceType: "auto", title: "", titleMode: "auto" })
@@ -128,6 +129,28 @@ export default function App() {
   const selectedPage = pages.find((page) => page.id === selectedId) || null
   const sourceMode = draft.sourceType || "auto"
   const sourceType = sourceMode === "auto" ? detectSource(draft.source) : sourceMode
+  const isUserWorkspace = Boolean(account && account.role !== "owner")
+
+  useEffect(() => {
+    let cancelled = false
+
+    fetch("/api/auth/status")
+      .then(readJsonResponse)
+      .then((data) => {
+        if (cancelled) return
+        if (data.needsUsername) {
+          window.location.replace("/signup?choose=username")
+          return
+        }
+        setAccount(data.user || null)
+        if (data.user && data.user.role !== "owner") setActiveDomain(DEFAULT_DOMAIN)
+      })
+      .catch(() => {})
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   useEffect(() => {
     selectedIdRef.current = selectedId
@@ -952,6 +975,7 @@ export default function App() {
   }, [filteredPages, query])
 
   function switchDomain(domain) {
+    if (isUserWorkspace) return
     if (domain === activeDomain) {
       setIsDomainMenuOpen(false)
       return
@@ -970,6 +994,11 @@ export default function App() {
     const params = new URLSearchParams()
     if (domain !== DEFAULT_DOMAIN) params.set("domain", domain)
     window.history.pushState({}, "", adminHomeUrl(domain))
+  }
+
+  async function signOut() {
+    await fetch("/api/auth/logout", { method: "POST" })
+    window.location.replace("/signup")
   }
 
   function changeSourceType(nextSourceType) {
@@ -1082,6 +1111,7 @@ export default function App() {
   return (
     <div className="admin-shell">
       <Sidebar
+        account={account}
         activeDomain={activeDomain}
         collapsedFolders={collapsedFolders}
         domainMenuRef={domainMenuRef}
@@ -1100,6 +1130,7 @@ export default function App() {
         onRestorePage={restoreFromTrash}
         onSelectPage={selectPage}
         onSwitchDomain={switchDomain}
+        onSignOut={signOut}
         onToggleDomainMenu={() => setIsDomainMenuOpen((current) => !current)}
         onToggleFolder={toggleFolder}
         onToggleTrash={() => setIsTrashOpen((current) => !current)}
@@ -1155,6 +1186,7 @@ export default function App() {
                 </div>
                 <SettingsMenu
                   activeDomain={activeDomain}
+                  canManageSite={!isUserWorkspace}
                   domainSettings={domainSettings}
                   faviconStatus={faviconStatus}
                   faviconUrlDraft={faviconUrlDraft}

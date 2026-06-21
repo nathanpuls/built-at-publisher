@@ -1,4 +1,5 @@
 import { marked } from "marked"
+import { createAuthHandlers } from "./auth"
 import { createDomainSettingsHandlers } from "./domain-settings"
 import { createIconHandlers } from "./icons"
 import { createMediaHandlers } from "./media"
@@ -13,7 +14,7 @@ const EDITOR_ORIGIN = "https://built.at"
 const DEFAULT_DOMAIN = "built.at"
 const PLATFORM_OWNER_ID = "built-at-owner"
 const EDITABLE_DOMAINS = new Set(["built.at", "nathanpuls.com", "fullpsych.com"])
-const RESERVED_USERNAMES = new Set(["admin", "api", "assets", "p"])
+const RESERVED_USERNAMES = new Set(["admin", "api", "assets", "p", "signup"])
 const DEFAULT_FONT_STYLE = '<style data-built-default-font>html { font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }</style>'
 const MARKDOWN_LINK_STYLE = '<style data-built-markdown-links>a { color: #111827; text-decoration: underline; text-decoration-color: #6b7280; text-underline-offset: 0.25em; }</style>'
 
@@ -163,6 +164,32 @@ function pagePublicPath(row) {
 function requestDomain(request) {
   const hostname = new URL(request.url).hostname.toLowerCase().replace(/^www\./, "")
   return normalizeDomain(hostname)
+}
+
+const {
+  authStatus,
+  beginGoogleAuth,
+  chooseUsername,
+  currentUser,
+  finishGoogleAuth,
+  logout,
+  usernameAvailability,
+} = createAuthHandlers({
+  editorOrigin: EDITOR_ORIGIN,
+  json,
+  makeId,
+})
+
+function isRegularUser(user) {
+  return Boolean(user && user.role !== "owner")
+}
+
+function canAccessPage(user, page) {
+  return !isRegularUser(user) || (
+    page.owner_id === user.id &&
+    page.namespace === "user" &&
+    normalizeDomain(page.domain) === DEFAULT_DOMAIN
+  )
 }
 
 const {
@@ -783,10 +810,32 @@ async function savePageData(body, env, publish = false) {
   return pageRowToResponse(row)
 }
 
-async function savePage(request, env, publish = false) {
+async function savePage(request, env, publish = false, user = null) {
   try {
     const body = await request.json()
-    return json(await savePageData(body, env, publish))
+    if (isRegularUser(user) && !user.username) {
+      return json({ error: "Choose a username before creating pages." }, { status: 403 })
+    }
+
+    if (isRegularUser(user) && body.id) {
+      const existing = await env.DB.prepare(
+        "SELECT owner_id, namespace, domain FROM pages WHERE id = ? LIMIT 1"
+      ).bind(String(body.id)).first()
+
+      if (existing && !canAccessPage(user, existing)) {
+        return json({ error: "Page not found." }, { status: 404 })
+      }
+    }
+
+    const scopedBody = isRegularUser(user)
+      ? {
+          ...body,
+          domain: DEFAULT_DOMAIN,
+          ownerId: user.id,
+          namespace: "user",
+        }
+      : body
+    return json(await savePageData(scopedBody, env, publish))
   } catch (error) {
     if (error instanceof Response) {
       return error
@@ -897,7 +946,7 @@ async function openShortcutPage(request, env) {
   return redirectResponse(new URL(`/admin?${params}`, EDITOR_ORIGIN).href)
 }
 
-async function getPage(id, env) {
+async function getPage(id, env, user = null) {
   if (!env.DB) {
     return json({ error: "DB binding is not configured." }, { status: 500 })
   }
@@ -908,10 +957,14 @@ async function getPage(id, env) {
     return json({ error: "Page not found." }, { status: 404 })
   }
 
+  if (!canAccessPage(user, row)) {
+    return json({ error: "Page not found." }, { status: 404 })
+  }
+
   return json(pageRowToResponse(row))
 }
 
-async function updatePage(request, env, id) {
+async function updatePage(request, env, id, user = null) {
   if (!env.DB) {
     return json({ error: "DB binding is not configured." }, { status: 500 })
   }
@@ -919,6 +972,10 @@ async function updatePage(request, env, id) {
   const existing = await env.DB.prepare("SELECT * FROM pages WHERE id = ? AND deleted_at IS NULL").bind(id).first()
 
   if (!existing) {
+    return json({ error: "Page not found." }, { status: 404 })
+  }
+
+  if (!canAccessPage(user, existing)) {
     return json({ error: "Page not found." }, { status: 404 })
   }
 
@@ -1011,14 +1068,20 @@ async function updatePage(request, env, id) {
   return json(pageRowToResponse(row))
 }
 
-async function deletePage(env, id) {
+async function deletePage(env, id, user = null) {
   if (!env.DB) {
     return json({ error: "DB binding is not configured." }, { status: 500 })
   }
 
-  const existing = await env.DB.prepare("SELECT id FROM pages WHERE id = ? AND deleted_at IS NULL").bind(id).first()
+  const existing = await env.DB.prepare(
+    "SELECT id, owner_id, namespace, domain FROM pages WHERE id = ? AND deleted_at IS NULL"
+  ).bind(id).first()
 
   if (!existing) {
+    return json({ error: "Page not found." }, { status: 404 })
+  }
+
+  if (!canAccessPage(user, existing)) {
     return json({ error: "Page not found." }, { status: 404 })
   }
 
@@ -1028,26 +1091,36 @@ async function deletePage(env, id) {
   return json({ ok: true, id, deletedAt })
 }
 
-async function listTrash(env, domain = DEFAULT_DOMAIN) {
+async function listTrash(env, domain = DEFAULT_DOMAIN, user = null) {
   if (!env.DB) {
     return json({ error: "DB binding is not configured." }, { status: 500 })
   }
 
   await purgeExpiredTrash(env)
 
-  const result = await env.DB.prepare(
-    `SELECT pages.*, users.username
-     FROM pages
-     LEFT JOIN users ON users.id = pages.owner_id
-     WHERE pages.domain = ? AND pages.deleted_at IS NOT NULL
-     ORDER BY pages.deleted_at DESC
-     LIMIT 100`
-  ).bind(normalizeDomain(domain)).all()
+  const result = isRegularUser(user)
+    ? await env.DB.prepare(
+        `SELECT pages.*, users.username
+         FROM pages
+         LEFT JOIN users ON users.id = pages.owner_id
+         WHERE pages.domain = ? AND pages.namespace = 'user'
+           AND pages.owner_id = ? AND pages.deleted_at IS NOT NULL
+         ORDER BY pages.deleted_at DESC
+         LIMIT 100`
+      ).bind(DEFAULT_DOMAIN, user.id).all()
+    : await env.DB.prepare(
+        `SELECT pages.*, users.username
+         FROM pages
+         LEFT JOIN users ON users.id = pages.owner_id
+         WHERE pages.domain = ? AND pages.deleted_at IS NOT NULL
+         ORDER BY pages.deleted_at DESC
+         LIMIT 100`
+      ).bind(normalizeDomain(domain)).all()
 
   return json({ pages: (result.results || []).map(pageRowToResponse) })
 }
 
-async function restorePage(env, id) {
+async function restorePage(env, id, user = null) {
   if (!env.DB) {
     return json({ error: "DB binding is not configured." }, { status: 500 })
   }
@@ -1055,6 +1128,10 @@ async function restorePage(env, id) {
   const page = await pageById(env, id, { deleted: true })
 
   if (!page) {
+    return json({ error: "Deleted page not found." }, { status: 404 })
+  }
+
+  if (!canAccessPage(user, page)) {
     return json({ error: "Deleted page not found." }, { status: 404 })
   }
 
@@ -1095,14 +1172,20 @@ async function restorePage(env, id) {
   return json(pageRowToResponse(restored))
 }
 
-async function permanentlyDeletePage(env, id) {
+async function permanentlyDeletePage(env, id, user = null) {
   if (!env.DB) {
     return json({ error: "DB binding is not configured." }, { status: 500 })
   }
 
-  const page = await env.DB.prepare("SELECT id FROM pages WHERE id = ? AND deleted_at IS NOT NULL").bind(id).first()
+  const page = await env.DB.prepare(
+    "SELECT id, owner_id, namespace, domain FROM pages WHERE id = ? AND deleted_at IS NOT NULL"
+  ).bind(id).first()
 
   if (!page) {
+    return json({ error: "Deleted page not found." }, { status: 404 })
+  }
+
+  if (!canAccessPage(user, page)) {
     return json({ error: "Deleted page not found." }, { status: 404 })
   }
 
@@ -1258,6 +1341,24 @@ async function renderAdmin(request, env) {
   return new Response(html, { status: assetResponse.status, headers })
 }
 
+async function renderSignup(request, env) {
+  const assetUrl = new URL("/", request.url)
+  const assetResponse = await env.ASSETS.fetch(new Request(assetUrl, request))
+  const headers = new Headers(assetResponse.headers)
+
+  headers.delete("content-length")
+  headers.delete("content-encoding")
+  headers.set("content-type", "text/html; charset=utf-8")
+  headers.set("cache-control", "no-store")
+
+  if (request.method === "HEAD") {
+    return new Response(null, { status: assetResponse.status, headers })
+  }
+
+  const html = withPageMetadata(await assetResponse.text(), { title: "Sign up | built.at" })
+  return new Response(html, { status: assetResponse.status, headers })
+}
+
 async function renderRoutePath(pathname, env, domain = DEFAULT_DOMAIN) {
   if (!env.DB) {
     return new Response("DB binding is not configured.", { status: 500 })
@@ -1281,22 +1382,31 @@ async function renderRoutePath(pathname, env, domain = DEFAULT_DOMAIN) {
   return renderPageRow(row, env)
 }
 
-async function listPages(env, domain = DEFAULT_DOMAIN) {
+async function listPages(env, domain = DEFAULT_DOMAIN, user = null) {
   if (!env.DB) {
     return json({ error: "DB binding is not configured." }, { status: 500 })
   }
 
-  const result = await env.DB.prepare(
-    `SELECT pages.id, pages.slug, pages.title, pages.title_mode, pages.status, pages.markdown,
+  const fields = `SELECT pages.id, pages.slug, pages.title, pages.title_mode, pages.status, pages.markdown,
       pages.source, pages.source_type, pages.path, pages.domain, pages.is_home, pages.favicon_url,
       pages.owner_id, pages.namespace, users.username,
       pages.created_at AS createdAt, pages.updated_at AS updatedAt, pages.published_at AS publishedAt
      FROM pages
-     LEFT JOIN users ON users.id = pages.owner_id
-     WHERE pages.domain = ? AND pages.deleted_at IS NULL
-     ORDER BY pages.updated_at DESC
-     LIMIT 100`
-  ).bind(normalizeDomain(domain)).all()
+     LEFT JOIN users ON users.id = pages.owner_id`
+  const result = isRegularUser(user)
+    ? await env.DB.prepare(
+        `${fields}
+         WHERE pages.domain = ? AND pages.namespace = 'user'
+           AND pages.owner_id = ? AND pages.deleted_at IS NULL
+         ORDER BY pages.updated_at DESC
+         LIMIT 100`
+      ).bind(DEFAULT_DOMAIN, user.id).all()
+    : await env.DB.prepare(
+        `${fields}
+         WHERE pages.domain = ? AND pages.deleted_at IS NULL
+         ORDER BY pages.updated_at DESC
+         LIMIT 100`
+      ).bind(normalizeDomain(domain)).all()
 
   return json({
     pages: (result.results || []).map(({ markdown, ...page }) => ({
@@ -1340,7 +1450,39 @@ export default {
       return json({ ok: true })
     }
 
+    if (url.pathname === "/api/auth/status" && request.method === "GET") {
+      return authStatus(request, env)
+    }
+
+    if (url.pathname === "/api/auth/google" && request.method === "GET") {
+      return beginGoogleAuth(request, env)
+    }
+
+    if (url.pathname === "/api/auth/callback" && request.method === "GET") {
+      return finishGoogleAuth(request, env)
+    }
+
+    if (url.pathname === "/api/auth/username" && request.method === "GET") {
+      return usernameAvailability(request, env)
+    }
+
+    if (url.pathname === "/api/auth/username" && request.method === "POST") {
+      return chooseUsername(request, env)
+    }
+
+    if (url.pathname === "/api/auth/logout" && request.method === "POST") {
+      return logout(request, env)
+    }
+
+    if (url.pathname === "/signup" && (request.method === "GET" || request.method === "HEAD")) {
+      return renderSignup(request, env)
+    }
+
     if (url.pathname.startsWith("/admin") && (request.method === "GET" || request.method === "HEAD")) {
+      const user = await currentUser(request, env)
+      if (isRegularUser(user) && !user.username) {
+        return redirectResponse(new URL("/signup?choose=username", EDITOR_ORIGIN).href)
+      }
       return renderAdmin(request, env)
     }
 
@@ -1349,6 +1491,8 @@ export default {
     }
 
     if (url.pathname === "/api/domain-settings" && request.method === "PATCH") {
+      const user = await currentUser(request, env)
+      if (isRegularUser(user)) return json({ error: "Site settings are not available for this account." }, { status: 403 })
       return updateDomainSettings(request, env)
     }
 
@@ -1372,44 +1516,44 @@ export default {
     }
 
     if (url.pathname === "/api/pages" && request.method === "POST") {
-      return savePage(request, env)
+      return savePage(request, env, false, await currentUser(request, env))
     }
 
     if (url.pathname === "/api/pages" && request.method === "GET") {
-      return listPages(env, url.searchParams.get("domain") || DEFAULT_DOMAIN)
+      return listPages(env, url.searchParams.get("domain") || DEFAULT_DOMAIN, await currentUser(request, env))
     }
 
     if (url.pathname === "/api/trash" && request.method === "GET") {
-      return listTrash(env, url.searchParams.get("domain") || DEFAULT_DOMAIN)
+      return listTrash(env, url.searchParams.get("domain") || DEFAULT_DOMAIN, await currentUser(request, env))
     }
 
     const trashMatch = url.pathname.match(/^\/api\/trash\/([A-Za-z0-9_-]+)$/)
     const trashRestoreMatch = url.pathname.match(/^\/api\/trash\/([A-Za-z0-9_-]+)\/restore$/)
 
     if (trashRestoreMatch && request.method === "POST") {
-      return restorePage(env, trashRestoreMatch[1])
+      return restorePage(env, trashRestoreMatch[1], await currentUser(request, env))
     }
 
     if (trashMatch && request.method === "DELETE") {
-      return permanentlyDeletePage(env, trashMatch[1])
+      return permanentlyDeletePage(env, trashMatch[1], await currentUser(request, env))
     }
 
     const pageMatch = url.pathname.match(/^\/api\/pages\/([A-Za-z0-9_-]+)$/)
 
     if (pageMatch && request.method === "GET") {
-      return getPage(pageMatch[1], env)
+      return getPage(pageMatch[1], env, await currentUser(request, env))
     }
 
     if (pageMatch && request.method === "PATCH") {
-      return updatePage(request, env, pageMatch[1])
+      return updatePage(request, env, pageMatch[1], await currentUser(request, env))
     }
 
     if (pageMatch && request.method === "DELETE") {
-      return deletePage(env, pageMatch[1])
+      return deletePage(env, pageMatch[1], await currentUser(request, env))
     }
 
     if (url.pathname === "/api/publish" && request.method === "POST") {
-      return savePage(request, env, true)
+      return savePage(request, env, true, await currentUser(request, env))
     }
 
     if (url.pathname === "/api/shortcut" && request.method === "GET") {

@@ -1,5 +1,6 @@
 export function SettingsMenu({
   activeDomain,
+  canManageSite = true,
   domainSettings,
   faviconStatus,
   faviconUrlDraft,
@@ -62,29 +63,33 @@ export function SettingsMenu({
               <small>{activeDomain}</small>
             </span>
           </div>
-          <section className="icon-settings-section">
-            <strong>Site icon</strong>
-            <IconPreview label="Regular / maskable" src={sitePreview} />
-          </section>
-          <button type="button" onClick={onChooseFavicon}>
-            <span>Choose site icon</span>
-            <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-              <path d="M12 5v14M5 12h14" />
-            </svg>
-          </button>
-          <div className="favicon-url-control">
-            <input
-              value={faviconUrlDraft}
-              onChange={(event) => onSetFaviconUrlDraft(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") onSaveFaviconUrl(faviconUrlDraft)
-              }}
-              placeholder="Image URL"
-              aria-label="Favicon image URL"
-            />
-            <button type="button" onClick={() => onSaveFaviconUrl(faviconUrlDraft)}>Apply</button>
-          </div>
-          {domainSettings.recentFavicons?.length ? (
+          {canManageSite ? (
+            <>
+              <section className="icon-settings-section">
+                <strong>Site icon</strong>
+                <IconPreview label="Regular / maskable" src={sitePreview} />
+              </section>
+              <button type="button" onClick={onChooseFavicon}>
+                <span>Choose site icon</span>
+                <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+                  <path d="M12 5v14M5 12h14" />
+                </svg>
+              </button>
+              <div className="favicon-url-control">
+                <input
+                  value={faviconUrlDraft}
+                  onChange={(event) => onSetFaviconUrlDraft(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") onSaveFaviconUrl(faviconUrlDraft)
+                  }}
+                  placeholder="Image URL"
+                  aria-label="Favicon image URL"
+                />
+                <button type="button" onClick={() => onSaveFaviconUrl(faviconUrlDraft)}>Apply</button>
+              </div>
+            </>
+          ) : null}
+          {canManageSite && domainSettings.recentFavicons?.length ? (
             <div className="recent-favicons">
               <span>Recent</span>
               <div>

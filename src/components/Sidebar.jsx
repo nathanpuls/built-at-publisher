@@ -92,6 +92,7 @@ function TrashList({ pages, onDeletePermanently, onRestore }) {
 }
 
 export function Sidebar({
+  account,
   activeDomain,
   collapsedFolders,
   domainMenuRef,
@@ -110,6 +111,7 @@ export function Sidebar({
   onRestorePage,
   onSelectPage,
   onSwitchDomain,
+  onSignOut,
   onToggleDomainMenu,
   onToggleFolder,
   onToggleTrash,
@@ -121,6 +123,9 @@ export function Sidebar({
   sidebarEntries,
   trashPages,
 }) {
+  const isUserWorkspace = Boolean(account && account.role !== "owner")
+  const workspaceLabel = isUserWorkspace ? `built.at/${account.username}` : activeDomain
+
   return (
     <aside className="sidebar">
       <header className="sidebar-header">
@@ -129,7 +134,7 @@ export function Sidebar({
             className="domain-menu-trigger"
             type="button"
             onClick={onToggleDomainMenu}
-            aria-label="Switch domain"
+            aria-label={isUserWorkspace ? "Account menu" : "Switch domain"}
             aria-expanded={isDomainMenuOpen}
           >
             <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true">
@@ -138,21 +143,30 @@ export function Sidebar({
           </button>
           <input ref={faviconInputRef} className="visually-hidden" type="file" accept="image/*" onChange={onUploadFavicon} />
           <button className="routes-home" type="button" onClick={onResetAdminHome}>
-            {activeDomain}
+            {workspaceLabel}
           </button>
           {isDomainMenuOpen ? (
             <div className="domain-menu">
-              {EDITABLE_DOMAINS.map((domain) => (
-                <button
-                  className={domain === activeDomain ? "is-active" : ""}
-                  type="button"
-                  onClick={() => onSwitchDomain(domain)}
-                  key={domain}
-                >
-                  <span>{domain}</span>
-                  {domain === activeDomain ? <span aria-hidden="true">✓</span> : null}
-                </button>
-              ))}
+              {isUserWorkspace ? (
+                <>
+                  <div className="account-menu-heading">
+                    <strong>{account.displayName || account.username}</strong>
+                    <small>{account.email}</small>
+                  </div>
+                  <a href={`/${account.username}`} target="_blank" rel="noreferrer">View profile</a>
+                  <button type="button" onClick={onSignOut}>Sign out</button>
+                </>
+              ) : EDITABLE_DOMAINS.map((domain) => (
+                  <button
+                    className={domain === activeDomain ? "is-active" : ""}
+                    type="button"
+                    onClick={() => onSwitchDomain(domain)}
+                    key={domain}
+                  >
+                    <span>{domain}</span>
+                    {domain === activeDomain ? <span aria-hidden="true">✓</span> : null}
+                  </button>
+                ))}
             </div>
           ) : null}
         </div>

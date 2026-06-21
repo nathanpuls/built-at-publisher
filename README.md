@@ -58,6 +58,27 @@ Pages are stored in D1 using the existing `pages` table. The legacy `markdown` c
 - `POST /api/shortcut` publishes clipboard HTML, Markdown, or plain text from iOS Shortcuts and returns a share URL
 - `GET /p/:id/:slug?` renders the saved HTML as a live page
 
+## Account setup
+
+The signup flow lives at `https://built.at/signup`. It uses Google OAuth, then asks a new
+user to choose a unique username before opening the editor.
+
+Configure a Google OAuth web application with this production redirect URI:
+
+```text
+https://built.at/api/auth/callback
+```
+
+Set the Worker secrets:
+
+```sh
+npx wrangler secret put GOOGLE_CLIENT_ID
+npx wrangler secret put GOOGLE_CLIENT_SECRET
+```
+
+For local OAuth testing, set `GOOGLE_REDIRECT_URI` to the callback URL served by the
+local Worker and add that same URL to the Google OAuth client.
+
 ## iOS Shortcut API
 
 `POST /api/shortcut` accepts raw `text/plain` clipboard content or JSON. Raw text is auto-detected: HTML is published directly, while Markdown/plain text is converted into an HTML document. Every request creates a new editor post, even when its content matches an existing post. The response includes both `shareUrl` and `editorUrl`.
