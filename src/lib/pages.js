@@ -1,5 +1,5 @@
 export const DEFAULT_DOMAIN = "built.at"
-export const EDITABLE_DOMAINS = ["built.at", "nathanpuls.com"]
+export const EDITABLE_DOMAINS = ["built.at", "nathanpuls.com", "fullpsych.com"]
 
 export function normalizePath(path) {
   const trimmed = String(path || "").trim()

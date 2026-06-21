@@ -18,6 +18,10 @@
     {
       "pattern": "nathanpuls.com/*",
       "zone_name": "nathanpuls.com"
+    },
+    {
+      "pattern": "fullpsych.com/*",
+      "zone_name": "fullpsych.com"
     }
   ],
   "main": "worker/index.js",
