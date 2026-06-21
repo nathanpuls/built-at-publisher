@@ -18,6 +18,7 @@ import {
   publicUrl,
   selectPageFromUrl,
   sortPagesNewestFirst,
+  titleFromPath,
 } from "./lib/pages"
 
 const COLLAPSED_FOLDERS_KEY = "built-routes:collapsed-folders:v1"
@@ -39,17 +40,16 @@ function writeCollapsedFolders(folders) {
 function suggestedDraftTitle(candidate) {
   const sourceType = candidate.sourceType === "auto" ? detectSource(candidate.source) : candidate.sourceType
   const sourceTitle = titleFromSource(candidate.source, sourceType)
-  const pathTitle = displayPath(candidate.path).split("/").filter(Boolean).at(-1) || ""
 
-  return sourceTitle || pathTitle
+  return sourceTitle || titleFromPath(candidate.path)
 }
 
 function withSuggestedTitle(nextDraft, currentDraft) {
-  const currentTitle = currentDraft.title.trim()
-  const currentPathTitle = displayPath(currentDraft.path).split("/").filter(Boolean).at(-1) || ""
-  const titleIsAutomatic = !currentTitle || currentTitle === suggestedDraftTitle(currentDraft) || currentTitle === currentPathTitle
+  const titleIsAutomatic = currentDraft.titleMode !== "manual"
 
-  return titleIsAutomatic ? { ...nextDraft, title: suggestedDraftTitle(nextDraft) } : nextDraft
+  return titleIsAutomatic
+    ? { ...nextDraft, title: suggestedDraftTitle(nextDraft), titleMode: "auto" }
+    : nextDraft
 }
 
 async function readJsonResponse(response) {
@@ -77,7 +77,7 @@ export default function App() {
   const [activeDomain, setActiveDomain] = useState(EDITABLE_DOMAINS.includes(initialDomain) ? initialDomain : DEFAULT_DOMAIN)
   const [pages, setPages] = useState([])
   const [selectedId, setSelectedId] = useState(null)
-  const [draft, setDraft] = useState({ path: "", source: "", sourceType: "auto", title: "" })
+  const [draft, setDraft] = useState({ path: "", source: "", sourceType: "auto", title: "", titleMode: "auto" })
   const [domainSettings, setDomainSettings] = useState({ faviconUrl: "", loadedDomain: null })
   const [faviconUrlDraft, setFaviconUrlDraft] = useState("")
   const [pageFaviconUrlDraft, setPageFaviconUrlDraft] = useState("")
@@ -145,6 +145,7 @@ export default function App() {
             sourceType: page.sourceType || "auto",
             domain: page.domain || activeDomain,
             title: page.title || "",
+            titleMode: page.titleMode || "manual",
           }))
           .sort(sortPagesNewestFirst)
 
@@ -244,6 +245,7 @@ export default function App() {
       source: selectedPage.source || "",
       sourceType: selectedPage.sourceType || "auto",
       title: selectedPage.title || "",
+      titleMode: selectedPage.titleMode || "manual",
     })
     setPageFaviconUrlDraft(selectedPage.faviconUrl || "")
 
@@ -424,6 +426,7 @@ export default function App() {
           sourceType: nextDraft.sourceType,
           domain: activeDomain,
           title: nextDraft.title.trim(),
+          titleMode: nextDraft.titleMode,
           status: "published",
           isHome: options.isHome,
         }),
@@ -529,6 +532,7 @@ export default function App() {
           domain: activeDomain,
           sourceType: "auto",
           title: "",
+          titleMode: "auto",
           status: "published",
         }),
       })
@@ -777,6 +781,7 @@ export default function App() {
           sourceType: draft.sourceType,
           domain: activeDomain,
           title: draft.title,
+          titleMode: draft.titleMode,
           status: "published",
           allowDuplicate: true,
         }),
@@ -1096,7 +1101,11 @@ export default function App() {
                   <input
                     value={draft.title}
                     aria-label="Page title"
-                    onChange={(event) => scheduleSave({ ...draft, title: event.target.value })}
+                    onChange={(event) => scheduleSave({
+                      ...draft,
+                      title: event.target.value,
+                      titleMode: event.target.value.trim() ? "manual" : "auto",
+                    })}
                   />
                 </span>
               </div>

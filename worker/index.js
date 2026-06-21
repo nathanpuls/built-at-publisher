@@ -226,7 +226,10 @@ function calculatedPageTitle(row) {
     ? titleFromHtml(source)
     : titleFromMarkdown(source)
 
-  return String(row.title || "").trim() || sourceTitle || titleFromRoutePath(row.path) || ""
+  const explicitTitle = String(row.title || "").trim()
+  const titleMode = storedTitleMode(row)
+
+  return (titleMode === "manual" ? explicitTitle : "") || sourceTitle || titleFromRoutePath(row.path) || explicitTitle || ""
 }
 
 function suggestedPageTitle(pageContent, path) {
@@ -563,9 +566,19 @@ function displayRoutePath(path) {
 }
 
 function titleFromRoutePath(path) {
-  const pathParts = displayRoutePath(path).split("/").filter(Boolean)
+  return rawTitleFromRoutePath(path).replace(/-+/g, " ").trim()
+}
 
+function rawTitleFromRoutePath(path) {
+  const pathParts = displayRoutePath(path).split("/").filter(Boolean)
   return pathParts.at(-1) || ""
+}
+
+function storedTitleMode(row) {
+  if (row.title_mode === "auto" || row.title_mode === "manual") return row.title_mode
+
+  const title = String(row.title || "").trim()
+  return !row.source?.trim() && title && title === rawTitleFromRoutePath(row.path) ? "auto" : "manual"
 }
 
 function reservedRoutePath(path) {
@@ -620,6 +633,7 @@ function pageRowToResponse(row) {
     id: row.id,
     slug: row.slug,
     title: row.title,
+    titleMode: storedTitleMode(row),
     faviconUrl: row.favicon_url || "",
     hash: row.hash,
     html: row.markdown,
@@ -658,7 +672,8 @@ async function savePageData(body, env, publish = false) {
       ? body.title.trim()
       : ""
   ).slice(0, 160)
-  const title = requestedTitle || suggestedPageTitle(pageContent, path)
+  const titleMode = body.titleMode === "manual" && requestedTitle ? "manual" : "auto"
+  const title = titleMode === "manual" ? requestedTitle : suggestedPageTitle(pageContent, path)
   const slug = slugify(body.slug || title)
   const isBlankPage = !html && !pageContent.source
   let hash = isBlankPage ? "" : await hashContent(html || pageContent.source)
@@ -702,8 +717,8 @@ async function savePageData(body, env, publish = false) {
 
   await env.DB.prepare(
     `INSERT INTO pages
-      (id, slug, title, hash, markdown, json, status, created_at, updated_at, published_at, source, source_type, path, domain, favicon_url)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      (id, slug, title, hash, markdown, json, status, created_at, updated_at, published_at, source, source_type, path, domain, favicon_url, title_mode)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(id) DO UPDATE SET
       slug = excluded.slug,
       title = excluded.title,
@@ -716,10 +731,11 @@ async function savePageData(body, env, publish = false) {
       path = excluded.path,
       domain = excluded.domain,
       favicon_url = excluded.favicon_url,
+      title_mode = excluded.title_mode,
       updated_at = excluded.updated_at,
       published_at = COALESCE(excluded.published_at, pages.published_at)`
   )
-    .bind(id, slug, title, hash, html, docJson, status, createdAt, now, publishedAt, source, sourceType, path, domain, faviconUrl)
+    .bind(id, slug, title, hash, html, docJson, status, createdAt, now, publishedAt, source, sourceType, path, domain, faviconUrl, titleMode)
     .run()
 
   const row = await env.DB.prepare("SELECT * FROM pages WHERE id = ? AND deleted_at IS NULL").bind(id).first()
@@ -888,7 +904,13 @@ async function updatePage(request, env, id) {
       ? body.title.trim()
       : existing.title || ""
   ).slice(0, 160)
-  const title = requestedTitle || suggestedPageTitle(pageContent, path)
+  const existingTitleMode = storedTitleMode(existing)
+  const titleMode = body.titleMode === "manual" && requestedTitle
+    ? "manual"
+    : body.titleMode === "auto" || !requestedTitle
+      ? "auto"
+      : existingTitleMode
+  const title = titleMode === "manual" ? requestedTitle : suggestedPageTitle(pageContent, path)
   const slug = slugify(body.slug || title)
   const status = body.status || existing.status || "published"
   const now = new Date().toISOString()
@@ -915,7 +937,7 @@ async function updatePage(request, env, id) {
   await env.DB.prepare(
     `UPDATE pages
      SET slug = ?, title = ?, hash = ?, markdown = ?, status = ?, updated_at = ?,
-      source = ?, source_type = ?, path = ?, domain = ?, is_home = ?, favicon_url = ?
+      source = ?, source_type = ?, path = ?, domain = ?, is_home = ?, favicon_url = ?, title_mode = ?
      WHERE id = ?`
   )
     .bind(
@@ -931,6 +953,7 @@ async function updatePage(request, env, id) {
       domain,
       body.isHome ? 1 : (body.isHome === false ? 0 : existing.is_home || 0),
       faviconUrl,
+      titleMode,
       id
     )
     .run()
@@ -1143,7 +1166,7 @@ async function listPages(env, domain = DEFAULT_DOMAIN) {
   }
 
   const result = await env.DB.prepare(
-    `SELECT id, slug, title, status, markdown, source, source_type, path, domain, is_home, favicon_url,
+    `SELECT id, slug, title, title_mode, status, markdown, source, source_type, path, domain, is_home, favicon_url,
       created_at AS createdAt, updated_at AS updatedAt, published_at AS publishedAt
      FROM pages
      WHERE domain = ? AND deleted_at IS NULL
@@ -1156,6 +1179,7 @@ async function listPages(env, domain = DEFAULT_DOMAIN) {
       ...page,
       source: page.source || legacyMarkdownWrappedHtml(markdown || ""),
       sourceType: page.source_type || "html",
+      titleMode: storedTitleMode(page),
       domain: normalizeDomain(page.domain),
       path: page.path || "",
       isHome: Boolean(page.is_home),

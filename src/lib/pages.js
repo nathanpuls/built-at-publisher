@@ -21,6 +21,15 @@ export function displayPath(path) {
   return normalizePath(path).replace(/^\/+/, "")
 }
 
+export function titleFromPath(path) {
+  return displayPath(path)
+    .split("/")
+    .filter(Boolean)
+    .at(-1)
+    ?.replace(/-+/g, " ")
+    .trim() || ""
+}
+
 function fallbackPath(page) {
   return `/p/${page?.id || "unknown"}${page?.slug ? `/${page.slug}` : ""}`
 }
@@ -44,8 +53,7 @@ export function makePageId() {
 
 export function calculatedTitle(page) {
   const explicitTitle = String(page?.title || "").trim()
-  const pathParts = displayPath(page?.path).split("/").filter(Boolean)
-  const pathTitle = pathParts.at(-1) || ""
+  const pathTitle = titleFromPath(page?.path)
 
   return explicitTitle || titleFromSource(page?.source || "", page?.sourceType || "auto") || pathTitle || ""
 }
