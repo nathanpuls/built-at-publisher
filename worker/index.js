@@ -11,7 +11,9 @@ const PUBLIC_ID_ALPHABET = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ
 const FAVICON_LINK = '<link rel="icon" type="image/svg+xml" href="/favicon-v2.svg">'
 const EDITOR_ORIGIN = "https://built.at"
 const DEFAULT_DOMAIN = "built.at"
+const PLATFORM_OWNER_ID = "built-at-owner"
 const EDITABLE_DOMAINS = new Set(["built.at", "nathanpuls.com", "fullpsych.com"])
+const RESERVED_USERNAMES = new Set(["admin", "api", "assets", "p"])
 const DEFAULT_FONT_STYLE = '<style data-built-default-font>html { font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }</style>'
 const MARKDOWN_LINK_STYLE = '<style data-built-markdown-links>a { color: #111827; text-decoration: underline; text-decoration-color: #6b7280; text-underline-offset: 0.25em; }</style>'
 
@@ -137,6 +139,27 @@ function normalizeDomain(value) {
   return EDITABLE_DOMAINS.has(domain) ? domain : DEFAULT_DOMAIN
 }
 
+function normalizeUsername(value) {
+  const username = String(value || "").trim().toLowerCase()
+  if (!/^[a-z0-9](?:[a-z0-9-]{0,28}[a-z0-9])?$/.test(username)) return ""
+  return RESERVED_USERNAMES.has(username) ? "" : username
+}
+
+function pagePublicPath(row) {
+  const domain = normalizeDomain(row.domain)
+  const path = row.path || ""
+
+  if (domain !== DEFAULT_DOMAIN) {
+    return path || `/p/${row.id}${row.slug ? `/${row.slug}` : ""}`
+  }
+
+  if (row.namespace === "user" && row.username) {
+    return `/${row.username}${path && path !== "/" ? path : ""}`
+  }
+
+  return path ? `/p${path}` : `/p/${row.id}${row.slug ? `/${row.slug}` : ""}`
+}
+
 function requestDomain(request) {
   const hostname = new URL(request.url).hostname.toLowerCase().replace(/^www\./, "")
   return normalizeDomain(hostname)
@@ -159,6 +182,7 @@ const { renderIcon, renderManifest } = createIconHandlers({
   getDomainSettings,
   json,
   normalizeDomain,
+  pagePublicPath,
   requestDomain,
 })
 
@@ -641,16 +665,28 @@ function pageRowToResponse(row) {
     sourceType: row.source_type || "html",
     domain: normalizeDomain(row.domain),
     path,
+    ownerId: row.owner_id || PLATFORM_OWNER_ID,
+    namespace: row.namespace || "platform",
+    username: row.username || "",
     isHome: Boolean(row.is_home),
     json: JSON.parse(row.json || EMPTY_DOC_JSON),
     status: row.status,
-    url: path || fallbackUrl,
+    url: pagePublicPath(row),
     fallbackUrl,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     publishedAt: row.published_at,
     deletedAt: row.deleted_at,
   }
+}
+
+async function pageById(env, id, { deleted = false } = {}) {
+  return env.DB.prepare(
+    `SELECT pages.*, users.username
+     FROM pages
+     LEFT JOIN users ON users.id = pages.owner_id
+     WHERE pages.id = ? AND pages.deleted_at IS ${deleted ? "NOT NULL" : "NULL"}`
+  ).bind(id).first()
 }
 
 async function savePageData(body, env, publish = false) {
@@ -665,6 +701,8 @@ async function savePageData(body, env, publish = false) {
   const html = pageContent.html
   const path = normalizeRoutePath(body.path || "")
   const domain = normalizeDomain(body.domain)
+  const ownerId = String(body.ownerId || PLATFORM_OWNER_ID).trim() || PLATFORM_OWNER_ID
+  const namespace = body.namespace === "user" ? "user" : "platform"
   const requestedFaviconUrl = typeof body.faviconUrl === "string" ? body.faviconUrl.trim() : null
   const requestedTitle = (
     typeof body.title === "string"
@@ -707,17 +745,19 @@ async function savePageData(body, env, publish = false) {
     hash = `${id}:${hash}`
   }
 
-  const existing = await env.DB.prepare("SELECT created_at, favicon_url FROM pages WHERE id = ?")
+  const existing = await env.DB.prepare("SELECT created_at, favicon_url, owner_id, namespace FROM pages WHERE id = ?")
     .bind(id)
     .first()
   const faviconUrl = requestedFaviconUrl ?? existing?.favicon_url ?? ""
+  const storedOwnerId = existing?.owner_id || ownerId
+  const storedNamespace = existing?.namespace || namespace
   const createdAt = existing?.created_at || now
   const publishedAt = status === "published" ? now : null
 
   await env.DB.prepare(
     `INSERT INTO pages
-      (id, slug, title, hash, markdown, json, status, created_at, updated_at, published_at, source, source_type, path, domain, favicon_url, title_mode)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      (id, slug, title, hash, markdown, json, status, created_at, updated_at, published_at, source, source_type, path, domain, favicon_url, title_mode, owner_id, namespace)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(id) DO UPDATE SET
       slug = excluded.slug,
       title = excluded.title,
@@ -731,13 +771,15 @@ async function savePageData(body, env, publish = false) {
       domain = excluded.domain,
       favicon_url = excluded.favicon_url,
       title_mode = excluded.title_mode,
+      owner_id = excluded.owner_id,
+      namespace = excluded.namespace,
       updated_at = excluded.updated_at,
       published_at = COALESCE(excluded.published_at, pages.published_at)`
   )
-    .bind(id, slug, title, hash, html, docJson, status, createdAt, now, publishedAt, source, sourceType, path, domain, faviconUrl, titleMode)
+    .bind(id, slug, title, hash, html, docJson, status, createdAt, now, publishedAt, source, sourceType, path, domain, faviconUrl, titleMode, storedOwnerId, storedNamespace)
     .run()
 
-  const row = await env.DB.prepare("SELECT * FROM pages WHERE id = ? AND deleted_at IS NULL").bind(id).first()
+  const row = await pageById(env, id)
   return pageRowToResponse(row)
 }
 
@@ -860,7 +902,7 @@ async function getPage(id, env) {
     return json({ error: "DB binding is not configured." }, { status: 500 })
   }
 
-  const row = await env.DB.prepare("SELECT * FROM pages WHERE id = ? AND deleted_at IS NULL").bind(id).first()
+  const row = await pageById(env, id)
 
   if (!row) {
     return json({ error: "Page not found." }, { status: 404 })
@@ -883,6 +925,8 @@ async function updatePage(request, env, id) {
   const body = await request.json()
   const path = normalizeRoutePath(body.path ?? existing.path ?? "")
   const domain = normalizeDomain(body.domain ?? existing.domain)
+  const ownerId = existing.owner_id || PLATFORM_OWNER_ID
+  const namespace = existing.namespace || "platform"
   const faviconUrl = typeof body.faviconUrl === "string" ? body.faviconUrl.trim() : existing.favicon_url || ""
   const source = (
     typeof body.source === "string" ? body.source :
@@ -920,8 +964,10 @@ async function updatePage(request, env, id) {
       return json({ error: `${displayRoutePath(path)} starts with a reserved path.` }, { status: 400 })
     }
 
-    const pathConflict = await env.DB.prepare("SELECT id FROM pages WHERE domain = ? AND path = ? AND id <> ? AND deleted_at IS NULL")
-      .bind(domain, path, id)
+    const pathConflict = await env.DB.prepare(
+      "SELECT id FROM pages WHERE domain = ? AND namespace = ? AND owner_id = ? AND path = ? AND id <> ? AND deleted_at IS NULL"
+    )
+      .bind(domain, namespace, ownerId, path, id)
       .first()
 
     if (pathConflict) {
@@ -930,7 +976,11 @@ async function updatePage(request, env, id) {
   }
 
   if (body.isHome) {
-    await env.DB.prepare("UPDATE pages SET is_home = 0 WHERE domain = ? AND is_home = 1 AND deleted_at IS NULL").bind(domain).run()
+    await env.DB.prepare(
+      `UPDATE pages SET is_home = 0
+       WHERE domain = ? AND namespace = ? AND owner_id = ?
+         AND is_home = 1 AND deleted_at IS NULL`
+    ).bind(domain, namespace, ownerId).run()
   }
 
   await env.DB.prepare(
@@ -957,7 +1007,7 @@ async function updatePage(request, env, id) {
     )
     .run()
 
-  const row = await env.DB.prepare("SELECT * FROM pages WHERE id = ?").bind(id).first()
+  const row = await pageById(env, id)
   return json(pageRowToResponse(row))
 }
 
@@ -986,9 +1036,11 @@ async function listTrash(env, domain = DEFAULT_DOMAIN) {
   await purgeExpiredTrash(env)
 
   const result = await env.DB.prepare(
-    `SELECT * FROM pages
-     WHERE domain = ? AND deleted_at IS NOT NULL
-     ORDER BY deleted_at DESC
+    `SELECT pages.*, users.username
+     FROM pages
+     LEFT JOIN users ON users.id = pages.owner_id
+     WHERE pages.domain = ? AND pages.deleted_at IS NOT NULL
+     ORDER BY pages.deleted_at DESC
      LIMIT 100`
   ).bind(normalizeDomain(domain)).all()
 
@@ -1000,7 +1052,7 @@ async function restorePage(env, id) {
     return json({ error: "DB binding is not configured." }, { status: 500 })
   }
 
-  const page = await env.DB.prepare("SELECT * FROM pages WHERE id = ? AND deleted_at IS NOT NULL").bind(id).first()
+  const page = await pageById(env, id, { deleted: true })
 
   if (!page) {
     return json({ error: "Deleted page not found." }, { status: 404 })
@@ -1008,8 +1060,15 @@ async function restorePage(env, id) {
 
   if (page.path) {
     const conflict = await env.DB.prepare(
-      "SELECT id FROM pages WHERE domain = ? AND path = ? AND deleted_at IS NULL"
-    ).bind(normalizeDomain(page.domain), page.path).first()
+      `SELECT id FROM pages
+       WHERE domain = ? AND namespace = ? AND owner_id = ?
+         AND path = ? AND deleted_at IS NULL`
+    ).bind(
+      normalizeDomain(page.domain),
+      page.namespace || "platform",
+      page.owner_id || PLATFORM_OWNER_ID,
+      page.path
+    ).first()
 
     if (conflict) {
       return json({ error: `${displayRoutePath(page.path)} is already used. Remove or rename that path before restoring.` }, { status: 409 })
@@ -1020,12 +1079,18 @@ async function restorePage(env, id) {
 
   if (page.is_home) {
     await env.DB.prepare(
-      "UPDATE pages SET is_home = 0 WHERE domain = ? AND is_home = 1 AND deleted_at IS NULL"
-    ).bind(normalizeDomain(page.domain)).run()
+      `UPDATE pages SET is_home = 0
+       WHERE domain = ? AND namespace = ? AND owner_id = ?
+         AND is_home = 1 AND deleted_at IS NULL`
+    ).bind(
+      normalizeDomain(page.domain),
+      page.namespace || "platform",
+      page.owner_id || PLATFORM_OWNER_ID
+    ).run()
   }
 
   await env.DB.prepare("UPDATE pages SET deleted_at = NULL, updated_at = ? WHERE id = ?").bind(now, id).run()
-  const restored = await env.DB.prepare("SELECT * FROM pages WHERE id = ?").bind(id).first()
+  const restored = await pageById(env, id)
 
   return json(pageRowToResponse(restored))
 }
@@ -1058,7 +1123,12 @@ async function renderPage(id, env) {
     return new Response("DB binding is not configured.", { status: 500 })
   }
 
-  const row = await env.DB.prepare("SELECT * FROM pages WHERE id = ? AND deleted_at IS NULL").bind(id).first()
+  const row = await env.DB.prepare(
+    `SELECT pages.*, users.username
+     FROM pages
+     LEFT JOIN users ON users.id = pages.owner_id
+     WHERE pages.id = ? AND pages.deleted_at IS NULL`
+  ).bind(id).first()
 
   if (!row) {
     return notFoundPage({
@@ -1068,6 +1138,52 @@ async function renderPage(id, env) {
   }
 
   return renderPageRow(row, env)
+}
+
+async function renderPlatformPath(pathname, env) {
+  const path = normalizeRoutePath(pathname)
+  const row = await env.DB.prepare(
+    `SELECT pages.*, users.username
+     FROM pages
+     LEFT JOIN users ON users.id = pages.owner_id
+     WHERE pages.domain = ? AND pages.namespace = 'platform'
+       AND pages.path = ? AND pages.deleted_at IS NULL
+     LIMIT 1`
+  ).bind(DEFAULT_DOMAIN, path).first()
+
+  return row ? renderPageRow(row, env) : null
+}
+
+async function renderUserPath(usernameValue, pathname, env) {
+  const username = normalizeUsername(usernameValue)
+  if (!username) return null
+
+  const user = await env.DB.prepare(
+    "SELECT id, username FROM users WHERE username = ? LIMIT 1"
+  ).bind(username).first()
+  if (!user) return null
+
+  const path = normalizeRoutePath(pathname)
+  const row = path
+    ? await env.DB.prepare(
+      `SELECT pages.*, users.username
+       FROM pages
+       JOIN users ON users.id = pages.owner_id
+       WHERE pages.domain = ? AND pages.namespace = 'user'
+         AND pages.owner_id = ? AND pages.path = ? AND pages.deleted_at IS NULL
+       LIMIT 1`
+    ).bind(DEFAULT_DOMAIN, user.id, path).first()
+    : await env.DB.prepare(
+      `SELECT pages.*, users.username
+       FROM pages
+       JOIN users ON users.id = pages.owner_id
+       WHERE pages.domain = ? AND pages.namespace = 'user'
+         AND pages.owner_id = ? AND pages.is_home = 1 AND pages.deleted_at IS NULL
+       ORDER BY pages.updated_at DESC
+       LIMIT 1`
+    ).bind(DEFAULT_DOMAIN, user.id).first()
+
+  return row ? renderPageRow(row, env) : null
 }
 
 async function renderPageRow(row) {
@@ -1148,7 +1264,13 @@ async function renderRoutePath(pathname, env, domain = DEFAULT_DOMAIN) {
   }
 
   const path = normalizeRoutePath(pathname)
-  const row = await env.DB.prepare("SELECT * FROM pages WHERE domain = ? AND path = ? AND deleted_at IS NULL")
+  const row = await env.DB.prepare(
+    `SELECT pages.*, users.username
+     FROM pages
+     LEFT JOIN users ON users.id = pages.owner_id
+     WHERE pages.domain = ? AND pages.namespace = 'platform'
+       AND pages.path = ? AND pages.deleted_at IS NULL`
+  )
     .bind(normalizeDomain(domain), path)
     .first()
 
@@ -1165,11 +1287,14 @@ async function listPages(env, domain = DEFAULT_DOMAIN) {
   }
 
   const result = await env.DB.prepare(
-    `SELECT id, slug, title, title_mode, status, markdown, source, source_type, path, domain, is_home, favicon_url,
-      created_at AS createdAt, updated_at AS updatedAt, published_at AS publishedAt
+    `SELECT pages.id, pages.slug, pages.title, pages.title_mode, pages.status, pages.markdown,
+      pages.source, pages.source_type, pages.path, pages.domain, pages.is_home, pages.favicon_url,
+      pages.owner_id, pages.namespace, users.username,
+      pages.created_at AS createdAt, pages.updated_at AS updatedAt, pages.published_at AS publishedAt
      FROM pages
-     WHERE domain = ? AND deleted_at IS NULL
-     ORDER BY updated_at DESC
+     LEFT JOIN users ON users.id = pages.owner_id
+     WHERE pages.domain = ? AND pages.deleted_at IS NULL
+     ORDER BY pages.updated_at DESC
      LIMIT 100`
   ).bind(normalizeDomain(domain)).all()
 
@@ -1181,9 +1306,12 @@ async function listPages(env, domain = DEFAULT_DOMAIN) {
       titleMode: storedTitleMode(page),
       domain: normalizeDomain(page.domain),
       path: page.path || "",
+      ownerId: page.owner_id || PLATFORM_OWNER_ID,
+      namespace: page.namespace || "platform",
+      username: page.username || "",
       isHome: Boolean(page.is_home),
       faviconUrl: page.favicon_url || "",
-      url: page.path || `/p/${page.id}${page.slug ? `/${page.slug}` : ""}`,
+      url: pagePublicPath(page),
       fallbackUrl: `/p/${page.id}${page.slug ? `/${page.slug}` : ""}`,
     })),
   })
@@ -1301,7 +1429,15 @@ export default {
     const publicPageMatch = url.pathname.match(/^\/p\/([A-Za-z0-9_-]+)(?:\/.*)?$/)
 
     if (publicPageMatch && (request.method === "GET" || request.method === "HEAD")) {
-      return renderPage(publicPageMatch[1], env)
+      const row = await env.DB.prepare("SELECT id FROM pages WHERE id = ? AND deleted_at IS NULL")
+        .bind(publicPageMatch[1])
+        .first()
+
+      if (row) return renderPage(publicPageMatch[1], env)
+
+      const platformPath = url.pathname.replace(/^\/p/, "")
+      const platformResponse = await renderPlatformPath(platformPath, env)
+      if (platformResponse) return platformResponse
     }
 
     if (url.pathname === "/" && (request.method === "GET" || request.method === "HEAD")) {
@@ -1333,6 +1469,12 @@ export default {
 
       if (routeResponse) {
         return routeResponse
+      }
+
+      if (requestDomain(request) === DEFAULT_DOMAIN) {
+        const [, username = "", userPath = ""] = url.pathname.match(/^\/([^/]+)(?:\/(.*))?$/) || []
+        const userResponse = await renderUserPath(username, userPath ? `/${userPath}` : "", env)
+        if (userResponse) return userResponse
       }
 
       return notFoundPage({

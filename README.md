@@ -43,6 +43,11 @@ Pages are stored in D1 using the existing `pages` table. The legacy `markdown` c
 
 - Pages are namespaced by `domain + path`, so the same path can exist on
   `built.at` and `nathanpuls.com`.
+- Pages also carry an owner and namespace. Existing pages belong to the
+  Built.at owner and remain available at their legacy URLs.
+- Built.at-owned named pages publish at `/p/{path}`.
+- Permanent page references continue to publish at `/p/{id}`.
+- User pages publish at `/{username}` and `/{username}/{path}`.
 - Page modes are Markdown, HTML, redirect, and full-page iframe.
 - Page titles are edited independently from source content and become the
   rendered browser title.

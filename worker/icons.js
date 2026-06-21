@@ -21,7 +21,7 @@ function icoFromPng(png) {
   return ico
 }
 
-export function createIconHandlers({ calculatedPageTitle, getDomainSettings, json, normalizeDomain, requestDomain }) {
+export function createIconHandlers({ calculatedPageTitle, getDomainSettings, json, normalizeDomain, pagePublicPath, requestDomain }) {
   async function sourceResponse(request, env, source) {
     if (source.startsWith("/api/media/file/")) {
       const key = decodeURIComponent(source.replace(/^\/api\/media\/file\//, ""))
@@ -44,7 +44,12 @@ export function createIconHandlers({ calculatedPageTitle, getDomainSettings, jso
     const domain = normalizeDomain(url.searchParams.get("domain") || requestDomain(request))
     const pageId = url.searchParams.get("page") || ""
     const page = pageId && env.DB
-      ? await env.DB.prepare("SELECT * FROM pages WHERE id = ? AND deleted_at IS NULL").bind(pageId).first()
+      ? await env.DB.prepare(
+        `SELECT pages.*, users.username
+         FROM pages
+         LEFT JOIN users ON users.id = pages.owner_id
+         WHERE pages.id = ? AND pages.deleted_at IS NULL`
+      ).bind(pageId).first()
       : null
     const settings = await getDomainSettings(env, domain)
 
@@ -86,7 +91,7 @@ export function createIconHandlers({ calculatedPageTitle, getDomainSettings, jso
 
   async function renderManifest(request, env) {
     const context = await iconContext(request, env)
-    const startUrl = context.page?.path || (context.pageId ? `/p/${context.pageId}` : "/")
+    const startUrl = context.page ? pagePublicPath(context.page) : "/"
     const icons = [192, 512].flatMap((size) => [
       {
         src: `/api/icon?${iconParams({ domain: context.domain, pageId: context.pageId, size })}`,

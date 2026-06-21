@@ -1,5 +1,6 @@
 export const DEFAULT_DOMAIN = "built.at"
 export const EDITABLE_DOMAINS = ["built.at", "nathanpuls.com", "fullpsych.com"]
+export const PLATFORM_OWNER_ID = "built-at-owner"
 
 export function normalizePath(path) {
   const trimmed = String(path || "").trim()
@@ -45,7 +46,16 @@ function fallbackPath(page) {
 }
 
 export function publicPath(page) {
-  return page?.path || fallbackPath(page)
+  if (!page) return fallbackPath(page)
+  if (page.domain !== DEFAULT_DOMAIN) return page.path || fallbackPath(page)
+
+  if (page.namespace === "user" && page.username) {
+    const usernameRoot = `/${page.username}`
+    return page.path && page.path !== "/" ? `${usernameRoot}${page.path}` : usernameRoot
+  }
+
+  if (page.path) return `/p${page.path}`
+  return fallbackPath(page)
 }
 
 export function publicUrl(page) {
