@@ -813,7 +813,9 @@ async function savePageData(body, env, publish = false) {
 async function savePage(request, env, publish = false, user = null) {
   try {
     const body = await request.json()
-    if (isRegularUser(user) && !user.username) {
+    const personalWorkspace = Boolean(user && body.namespace === "user")
+
+    if ((isRegularUser(user) || personalWorkspace) && !user.username) {
       return json({ error: "Choose a username before creating pages." }, { status: 403 })
     }
 
@@ -827,7 +829,7 @@ async function savePage(request, env, publish = false, user = null) {
       }
     }
 
-    const scopedBody = isRegularUser(user)
+    const scopedBody = isRegularUser(user) || personalWorkspace
       ? {
           ...body,
           domain: DEFAULT_DOMAIN,
@@ -1091,14 +1093,14 @@ async function deletePage(env, id, user = null) {
   return json({ ok: true, id, deletedAt })
 }
 
-async function listTrash(env, domain = DEFAULT_DOMAIN, user = null) {
+async function listTrash(env, domain = DEFAULT_DOMAIN, user = null, personalWorkspace = false) {
   if (!env.DB) {
     return json({ error: "DB binding is not configured." }, { status: 500 })
   }
 
   await purgeExpiredTrash(env)
 
-  const result = isRegularUser(user)
+  const result = isRegularUser(user) || (user && personalWorkspace)
     ? await env.DB.prepare(
         `SELECT pages.*, users.username
          FROM pages
@@ -1382,7 +1384,7 @@ async function renderRoutePath(pathname, env, domain = DEFAULT_DOMAIN) {
   return renderPageRow(row, env)
 }
 
-async function listPages(env, domain = DEFAULT_DOMAIN, user = null) {
+async function listPages(env, domain = DEFAULT_DOMAIN, user = null, personalWorkspace = false) {
   if (!env.DB) {
     return json({ error: "DB binding is not configured." }, { status: 500 })
   }
@@ -1393,7 +1395,7 @@ async function listPages(env, domain = DEFAULT_DOMAIN, user = null) {
       pages.created_at AS createdAt, pages.updated_at AS updatedAt, pages.published_at AS publishedAt
      FROM pages
      LEFT JOIN users ON users.id = pages.owner_id`
-  const result = isRegularUser(user)
+  const result = isRegularUser(user) || (user && personalWorkspace)
     ? await env.DB.prepare(
         `${fields}
          WHERE pages.domain = ? AND pages.namespace = 'user'
@@ -1520,11 +1522,21 @@ export default {
     }
 
     if (url.pathname === "/api/pages" && request.method === "GET") {
-      return listPages(env, url.searchParams.get("domain") || DEFAULT_DOMAIN, await currentUser(request, env))
+      return listPages(
+        env,
+        url.searchParams.get("domain") || DEFAULT_DOMAIN,
+        await currentUser(request, env),
+        url.searchParams.get("workspace") === "personal"
+      )
     }
 
     if (url.pathname === "/api/trash" && request.method === "GET") {
-      return listTrash(env, url.searchParams.get("domain") || DEFAULT_DOMAIN, await currentUser(request, env))
+      return listTrash(
+        env,
+        url.searchParams.get("domain") || DEFAULT_DOMAIN,
+        await currentUser(request, env),
+        url.searchParams.get("workspace") === "personal"
+      )
     }
 
     const trashMatch = url.pathname.match(/^\/api\/trash\/([A-Za-z0-9_-]+)$/)

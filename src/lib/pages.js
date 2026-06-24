@@ -107,14 +107,18 @@ export function adminUrlForPage(page) {
   const params = new URLSearchParams()
 
   if (page?.domain && page.domain !== DEFAULT_DOMAIN) params.set("domain", page.domain)
+  if (page?.namespace === "user") params.set("workspace", "personal")
   if (page?.path) params.set("path", displayPath(page.path))
   else if (page?.id) params.set("id", page.id)
 
   return `/admin${params.toString() ? `?${params}` : ""}`
 }
 
-export function adminHomeUrl(domain = DEFAULT_DOMAIN) {
-  return domain === DEFAULT_DOMAIN ? "/admin" : `/admin?domain=${encodeURIComponent(domain)}`
+export function adminHomeUrl(domain = DEFAULT_DOMAIN, workspace = "platform") {
+  const params = new URLSearchParams()
+  if (domain !== DEFAULT_DOMAIN) params.set("domain", domain)
+  if (workspace === "personal") params.set("workspace", "personal")
+  return `/admin${params.toString() ? `?${params}` : ""}`
 }
 
 export function selectPageFromUrl(pages) {

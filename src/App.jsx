@@ -82,9 +82,12 @@ async function readJsonResponse(response) {
 }
 
 export default function App() {
-  const initialDomain = new URLSearchParams(window.location.search).get("domain") || DEFAULT_DOMAIN
+  const initialParams = new URLSearchParams(window.location.search)
+  const initialDomain = initialParams.get("domain") || DEFAULT_DOMAIN
   const [activeDomain, setActiveDomain] = useState(EDITABLE_DOMAINS.includes(initialDomain) ? initialDomain : DEFAULT_DOMAIN)
   const [account, setAccount] = useState(null)
+  const [authLoaded, setAuthLoaded] = useState(false)
+  const [workspaceMode, setWorkspaceMode] = useState(initialParams.get("workspace") === "personal" ? "personal" : "platform")
   const [pages, setPages] = useState([])
   const [selectedId, setSelectedId] = useState(null)
   const [draft, setDraft] = useState({ path: "", source: "", sourceType: "auto", title: "", titleMode: "auto" })
@@ -129,7 +132,8 @@ export default function App() {
   const selectedPage = pages.find((page) => page.id === selectedId) || null
   const sourceMode = draft.sourceType || "auto"
   const sourceType = sourceMode === "auto" ? detectSource(draft.source) : sourceMode
-  const isUserWorkspace = Boolean(account && account.role !== "owner")
+  const isPersonalWorkspace = Boolean(account && (account.role !== "owner" || workspaceMode === "personal"))
+  const isUserWorkspace = isPersonalWorkspace
 
   useEffect(() => {
     let cancelled = false
@@ -143,9 +147,15 @@ export default function App() {
           return
         }
         setAccount(data.user || null)
-        if (data.user && data.user.role !== "owner") setActiveDomain(DEFAULT_DOMAIN)
+        if (data.user && data.user.role !== "owner") {
+          setActiveDomain(DEFAULT_DOMAIN)
+          setWorkspaceMode("personal")
+        }
       })
       .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setAuthLoaded(true)
+      })
 
     return () => {
       cancelled = true
@@ -160,11 +170,14 @@ export default function App() {
     let cancelled = false
 
     async function loadPages() {
+      if (!authLoaded) return
       setIsLoading(true)
       setError("")
 
       try {
-        const response = await fetch(`/api/pages?domain=${encodeURIComponent(activeDomain)}`)
+        const params = new URLSearchParams({ domain: activeDomain })
+        if (isPersonalWorkspace) params.set("workspace", "personal")
+        const response = await fetch(`/api/pages?${params}`)
         const data = await readJsonResponse(response)
 
         if (!response.ok) throw new Error(data.error || "Could not load paths.")
@@ -196,16 +209,19 @@ export default function App() {
     return () => {
       cancelled = true
     }
-  }, [activeDomain])
+  }, [activeDomain, authLoaded, isPersonalWorkspace])
 
   useEffect(() => {
     let cancelled = false
 
     async function loadTrash() {
+      if (!authLoaded) return
       setIsTrashLoading(true)
 
       try {
-        const response = await fetch(`/api/trash?domain=${encodeURIComponent(activeDomain)}`)
+        const params = new URLSearchParams({ domain: activeDomain })
+        if (isPersonalWorkspace) params.set("workspace", "personal")
+        const response = await fetch(`/api/trash?${params}`)
         const data = await readJsonResponse(response)
 
         if (!response.ok) throw new Error(data.error || "Could not load trash.")
@@ -221,7 +237,7 @@ export default function App() {
     return () => {
       cancelled = true
     }
-  }, [activeDomain])
+  }, [activeDomain, authLoaded, isPersonalWorkspace])
 
   useEffect(() => {
     let cancelled = false
@@ -283,7 +299,7 @@ export default function App() {
 
     if (keepAdminHomeUrl.current) {
       keepAdminHomeUrl.current = false
-      window.history.replaceState({}, "", adminHomeUrl(activeDomain))
+      window.history.replaceState({}, "", adminHomeUrl(activeDomain, isPersonalWorkspace ? "personal" : "platform"))
     } else {
       window.history.replaceState({}, "", adminUrlForPage(selectedPage))
     }
@@ -295,7 +311,7 @@ export default function App() {
         pathInputRef.current?.select()
       })
     }
-  }, [selectedPage?.id, activeDomain])
+  }, [selectedPage?.id, activeDomain, isPersonalWorkspace])
 
   useEffect(() => {
     writeCollapsedFolders(collapsedFolders)
@@ -581,6 +597,8 @@ export default function App() {
           title: "",
           titleMode: "auto",
           status: "published",
+          namespace: isPersonalWorkspace ? "user" : "platform",
+          ownerId: isPersonalWorkspace ? account?.id : undefined,
         }),
       })
       const page = await readJsonResponse(response)
@@ -618,7 +636,7 @@ export default function App() {
         if (page.id === selectedId) {
           const nextSelected = next[0]?.id || null
           setSelectedId(nextSelected)
-          window.history.replaceState({}, "", nextSelected ? adminUrlForPage(next[0]) : adminHomeUrl(activeDomain))
+          window.history.replaceState({}, "", nextSelected ? adminUrlForPage(next[0]) : adminHomeUrl(activeDomain, isPersonalWorkspace ? "personal" : "platform"))
         }
 
         return next
@@ -662,7 +680,7 @@ export default function App() {
         if (deletedIds.has(selectedId)) {
           const nextSelected = next[0]?.id || null
           setSelectedId(nextSelected)
-          window.history.replaceState({}, "", nextSelected ? adminUrlForPage(next[0]) : adminHomeUrl(activeDomain))
+          window.history.replaceState({}, "", nextSelected ? adminUrlForPage(next[0]) : adminHomeUrl(activeDomain, isPersonalWorkspace ? "personal" : "platform"))
         }
 
         return next
@@ -761,7 +779,7 @@ export default function App() {
     setPathError("")
     keepAdminHomeUrl.current = true
     setSelectedId(pages[0]?.id || null)
-    window.history.pushState({}, "", adminHomeUrl(activeDomain))
+    window.history.pushState({}, "", adminHomeUrl(activeDomain, isPersonalWorkspace ? "personal" : "platform"))
   }
 
   function toggleFolder(folder) {
@@ -841,6 +859,8 @@ export default function App() {
           titleMode: draft.titleMode,
           status: "published",
           allowDuplicate: true,
+          namespace: isPersonalWorkspace ? "user" : "platform",
+          ownerId: isPersonalWorkspace ? account?.id : undefined,
         }),
       })
       const page = await readJsonResponse(response)
@@ -975,13 +995,14 @@ export default function App() {
   }, [filteredPages, query])
 
   function switchDomain(domain) {
-    if (isUserWorkspace) return
+    if (account?.role !== "owner") return
     if (domain === activeDomain) {
       setIsDomainMenuOpen(false)
       return
     }
 
     flushPendingSave()
+    setWorkspaceMode("platform")
     setActiveDomain(domain)
     setPages([])
     setSelectedId(null)
@@ -994,6 +1015,24 @@ export default function App() {
     const params = new URLSearchParams()
     if (domain !== DEFAULT_DOMAIN) params.set("domain", domain)
     window.history.pushState({}, "", adminHomeUrl(domain))
+  }
+
+  function switchToPersonalWorkspace() {
+    if (!account?.username) {
+      window.location.assign("/signup?choose=username")
+      return
+    }
+
+    flushPendingSave()
+    setWorkspaceMode("personal")
+    setActiveDomain(DEFAULT_DOMAIN)
+    setPages([])
+    setSelectedId(null)
+    setDeletedPage(null)
+    setQuery("")
+    setIsDomainMenuOpen(false)
+    setIsSettingsMenuOpen(false)
+    window.history.pushState({}, "", adminHomeUrl(DEFAULT_DOMAIN, "personal"))
   }
 
   async function signOut() {
@@ -1130,6 +1169,7 @@ export default function App() {
         onRestorePage={restoreFromTrash}
         onSelectPage={selectPage}
         onSwitchDomain={switchDomain}
+        onSwitchToPersonal={switchToPersonalWorkspace}
         onSignOut={signOut}
         onToggleDomainMenu={() => setIsDomainMenuOpen((current) => !current)}
         onToggleFolder={toggleFolder}
@@ -1138,6 +1178,7 @@ export default function App() {
         query={query}
         searchInputRef={searchInputRef}
         selectedId={selectedId}
+        workspaceMode={workspaceMode}
         setQuery={setQuery}
         sidebarEntries={sidebarEntries}
         trashPages={trashPages}

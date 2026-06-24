@@ -100,7 +100,7 @@ export function createAuthHandlers({ editorOrigin, json, makeId }) {
     return json({
       configured: authConfigured(env),
       user: publicUser(user),
-      needsUsername: Boolean(user && !user.username && user.role !== "owner"),
+      needsUsername: Boolean(user && !user.username),
     })
   }
 
@@ -236,8 +236,6 @@ export function createAuthHandlers({ editorOrigin, json, makeId }) {
   async function chooseUsername(request, env) {
     const user = await currentUser(request, env)
     if (!user) return json({ error: "Sign in before choosing a username." }, { status: 401 })
-    if (user.role === "owner") return json({ user: publicUser(user) })
-
     const body = await request.json()
     const username = normalizeUsername(body.username)
 

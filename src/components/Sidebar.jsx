@@ -111,6 +111,7 @@ export function Sidebar({
   onRestorePage,
   onSelectPage,
   onSwitchDomain,
+  onSwitchToPersonal,
   onSignOut,
   onToggleDomainMenu,
   onToggleFolder,
@@ -122,8 +123,9 @@ export function Sidebar({
   setQuery,
   sidebarEntries,
   trashPages,
+  workspaceMode,
 }) {
-  const isUserWorkspace = Boolean(account && account.role !== "owner")
+  const isUserWorkspace = Boolean(account && (account.role !== "owner" || workspaceMode === "personal"))
   const workspaceLabel = isUserWorkspace ? `built.at/${account.username}` : activeDomain
 
   return (
@@ -147,26 +149,50 @@ export function Sidebar({
           </button>
           {isDomainMenuOpen ? (
             <div className="domain-menu">
-              {isUserWorkspace ? (
+              {account?.role === "owner" ? (
                 <>
                   <div className="account-menu-heading">
                     <strong>{account.displayName || account.username}</strong>
                     <small>{account.email}</small>
                   </div>
-                  <a href={`/${account.username}`} target="_blank" rel="noreferrer">View profile</a>
+                  {EDITABLE_DOMAINS.map((domain) => (
+                    <button
+                      className={workspaceMode === "platform" && domain === activeDomain ? "is-active" : ""}
+                      type="button"
+                      onClick={() => onSwitchDomain(domain)}
+                      key={domain}
+                    >
+                      <span>{domain}</span>
+                      {workspaceMode === "platform" && domain === activeDomain ? <span aria-hidden="true">✓</span> : null}
+                    </button>
+                  ))}
+                  <button className={workspaceMode === "personal" ? "is-active" : ""} type="button" onClick={onSwitchToPersonal}>
+                    <span>{account.username ? `built.at/${account.username}` : "Choose username"}</span>
+                    {workspaceMode === "personal" ? <span aria-hidden="true">✓</span> : null}
+                  </button>
+                  {account.username ? <a href={`/${account.username}`} target="_blank" rel="noreferrer">View personal page</a> : null}
+                  <button type="button" onClick={onSignOut}>Sign out</button>
+                </>
+              ) : isUserWorkspace ? (
+                <>
+                  <div className="account-menu-heading">
+                    <strong>{account.displayName || account.username}</strong>
+                    <small>{account.email}</small>
+                  </div>
+                  <a href={`/${account.username}`} target="_blank" rel="noreferrer">View personal page</a>
                   <button type="button" onClick={onSignOut}>Sign out</button>
                 </>
               ) : EDITABLE_DOMAINS.map((domain) => (
-                  <button
-                    className={domain === activeDomain ? "is-active" : ""}
-                    type="button"
-                    onClick={() => onSwitchDomain(domain)}
-                    key={domain}
-                  >
-                    <span>{domain}</span>
-                    {domain === activeDomain ? <span aria-hidden="true">✓</span> : null}
-                  </button>
-                ))}
+                <button
+                  className={domain === activeDomain ? "is-active" : ""}
+                  type="button"
+                  onClick={() => onSwitchDomain(domain)}
+                  key={domain}
+                >
+                  <span>{domain}</span>
+                  {domain === activeDomain ? <span aria-hidden="true">✓</span> : null}
+                </button>
+              ))}
             </div>
           ) : null}
         </div>
