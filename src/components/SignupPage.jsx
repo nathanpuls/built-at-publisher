@@ -1,16 +1,6 @@
 import { useEffect, useRef, useState } from "react"
 import { renderSource } from "../lib/content"
 
-const DEFAULT_SIGNUP_SOURCE = `# Create your Built.at account
-
-Sign in, choose your username, and publish at built.at/username.
-
----
-
-# Choose your username
-
-This becomes the first part of every page you publish.`
-
 async function readJson(response) {
   const text = await response.text()
   return text ? JSON.parse(text) : {}
@@ -28,7 +18,7 @@ export function SignupPage() {
   const [username, setUsername] = useState("")
   const [availability, setAvailability] = useState({ checking: false, available: false, message: "" })
   const [error, setError] = useState(errorMessage(new URLSearchParams(window.location.search).get("error")))
-  const [signupSource, setSignupSource] = useState(DEFAULT_SIGNUP_SOURCE)
+  const [signupSource, setSignupSource] = useState("")
   const usernameRef = useRef(null)
   const [signInSource, usernameSource = ""] = signupSource.split(/\n\s*---\s*\n/, 2)
 
@@ -38,7 +28,7 @@ export function SignupPage() {
     fetch("/api/system/signup")
       .then(readJson)
       .then((data) => {
-        if (!cancelled && data.page?.source?.trim()) setSignupSource(data.page.source)
+        if (!cancelled && data.page) setSignupSource(data.page.source || "")
       })
       .catch(() => {})
 
@@ -142,7 +132,7 @@ export function SignupPage() {
           <>
             <div className="signup-copy">
               <span className="signup-account">{status.user.email}</span>
-              <div dangerouslySetInnerHTML={{ __html: renderSource(usernameSource || signInSource) }} />
+              <div dangerouslySetInnerHTML={{ __html: renderSource(usernameSource) }} />
             </div>
             <form className="username-form" onSubmit={saveUsername}>
               <label htmlFor="username">Username</label>
