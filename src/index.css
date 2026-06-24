@@ -1288,6 +1288,28 @@ textarea {
   font-size: 12px;
 }
 
+.signup-switch-account {
+  width: fit-content;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 13px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.signup-switch-account:hover {
+  color: var(--text);
+  background: transparent;
+}
+
+.signup-switch-account:disabled {
+  color: #9ca3af;
+  cursor: wait;
+}
+
 .google-signin {
   min-height: 46px;
   padding: 0 14px;

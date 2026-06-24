@@ -18,6 +18,7 @@ export function SignupPage() {
   const [username, setUsername] = useState("")
   const [availability, setAvailability] = useState({ checking: false, available: false, message: "" })
   const [error, setError] = useState(errorMessage(new URLSearchParams(window.location.search).get("error")))
+  const [isSigningOut, setIsSigningOut] = useState(false)
   const [signInSource, setSignInSource] = useState("")
   const [usernameSource, setUsernameSource] = useState("")
   const usernameRef = useRef(null)
@@ -112,6 +113,20 @@ export function SignupPage() {
     }
   }
 
+  async function useDifferentAccount() {
+    setError("")
+    setIsSigningOut(true)
+
+    try {
+      const response = await fetch("/api/auth/logout", { method: "POST" })
+      if (!response.ok) throw new Error("Could not sign out.")
+      window.location.replace("/signup")
+    } catch (signOutError) {
+      setIsSigningOut(false)
+      setError(signOutError.message)
+    }
+  }
+
   return (
     <main className="signup-shell">
       <section className="signup-panel">
@@ -135,6 +150,9 @@ export function SignupPage() {
             <div className="signup-copy">
               <span className="signup-account">{status.user.email}</span>
               <div dangerouslySetInnerHTML={{ __html: renderSource(usernameSource) }} />
+              <button className="signup-switch-account" type="button" onClick={useDifferentAccount} disabled={isSigningOut}>
+                {isSigningOut ? "Signing out" : "Use a different account"}
+              </button>
             </div>
             <form className="username-form" onSubmit={saveUsername}>
               <label htmlFor="username">Username</label>
