@@ -996,7 +996,7 @@ export default function App() {
 
   function switchDomain(domain) {
     if (account?.role !== "owner") return
-    if (domain === activeDomain) {
+    if (workspaceMode === "platform" && domain === activeDomain) {
       setIsDomainMenuOpen(false)
       return
     }
@@ -1020,6 +1020,11 @@ export default function App() {
   function switchToPersonalWorkspace() {
     if (!account?.username) {
       window.location.assign("/signup?choose=username")
+      return
+    }
+
+    if (workspaceMode === "personal") {
+      setIsDomainMenuOpen(false)
       return
     }
 

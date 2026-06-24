@@ -126,7 +126,7 @@ export function Sidebar({
   workspaceMode,
 }) {
   const isUserWorkspace = Boolean(account && (account.role !== "owner" || workspaceMode === "personal"))
-  const workspaceLabel = isUserWorkspace ? `built.at/${account.username}` : activeDomain
+  const workspaceLabel = isUserWorkspace ? `@${account.username}` : activeDomain
 
   return (
     <aside className="sidebar">
@@ -136,7 +136,7 @@ export function Sidebar({
             className="domain-menu-trigger"
             type="button"
             onClick={onToggleDomainMenu}
-            aria-label={isUserWorkspace ? "Account menu" : "Switch domain"}
+            aria-label="Switch workspace"
             aria-expanded={isDomainMenuOpen}
           >
             <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true">
@@ -144,7 +144,7 @@ export function Sidebar({
             </svg>
           </button>
           <input ref={faviconInputRef} className="visually-hidden" type="file" accept="image/*" onChange={onUploadFavicon} />
-          <button className="routes-home" type="button" onClick={onResetAdminHome}>
+          <button className={`routes-home ${isUserWorkspace ? "is-personal" : ""}`} type="button" onClick={onResetAdminHome} title={isUserWorkspace ? `built.at/${account.username}` : activeDomain}>
             {workspaceLabel}
           </button>
           {isDomainMenuOpen ? (
@@ -167,7 +167,7 @@ export function Sidebar({
                     </button>
                   ))}
                   <button className={workspaceMode === "personal" ? "is-active" : ""} type="button" onClick={onSwitchToPersonal}>
-                    <span>{account.username ? `built.at/${account.username}` : "Choose username"}</span>
+                    <span>{account.username ? `@${account.username}` : "Choose username"}</span>
                     {workspaceMode === "personal" ? <span aria-hidden="true">✓</span> : null}
                   </button>
                   {account.username ? <a href={`/${account.username}`} target="_blank" rel="noreferrer">View personal page</a> : null}

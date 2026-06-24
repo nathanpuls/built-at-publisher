@@ -456,6 +456,10 @@ h1 {
   color: #374151;
 }
 
+.routes-home.is-personal {
+  font-size: 16px;
+}
+
 .search-row {
   height: var(--editor-toolbar-height);
   min-height: var(--editor-toolbar-height);
