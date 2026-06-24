@@ -1,4 +1,15 @@
 import { useEffect, useRef, useState } from "react"
+import { renderSource } from "../lib/content"
+
+const DEFAULT_SIGNUP_SOURCE = `# Create your Built.at account
+
+Sign in, choose your username, and publish at built.at/username.
+
+---
+
+# Choose your username
+
+This becomes the first part of every page you publish.`
 
 async function readJson(response) {
   const text = await response.text()
@@ -17,10 +28,19 @@ export function SignupPage() {
   const [username, setUsername] = useState("")
   const [availability, setAvailability] = useState({ checking: false, available: false, message: "" })
   const [error, setError] = useState(errorMessage(new URLSearchParams(window.location.search).get("error")))
+  const [signupSource, setSignupSource] = useState(DEFAULT_SIGNUP_SOURCE)
   const usernameRef = useRef(null)
+  const [signInSource, usernameSource = ""] = signupSource.split(/\n\s*---\s*\n/, 2)
 
   useEffect(() => {
     let cancelled = false
+
+    fetch("/api/system/signup")
+      .then(readJson)
+      .then((data) => {
+        if (!cancelled && data.page?.source?.trim()) setSignupSource(data.page.source)
+      })
+      .catch(() => {})
 
     fetch("/api/auth/status")
       .then(readJson)
@@ -109,10 +129,7 @@ export function SignupPage() {
 
         {!status.loading && !status.user ? (
           <>
-            <div className="signup-copy">
-              <h1>Create your Built.at account</h1>
-              <p>Sign in, choose your username, and publish at built.at/username.</p>
-            </div>
+            <div className="signup-copy" dangerouslySetInnerHTML={{ __html: renderSource(signInSource) }} />
             <a className={`google-signin ${status.configured ? "" : "is-disabled"}`} href={status.configured ? "/api/auth/google" : undefined} aria-disabled={!status.configured}>
               <span aria-hidden="true">G</span>
               Continue with Google
@@ -125,8 +142,7 @@ export function SignupPage() {
           <>
             <div className="signup-copy">
               <span className="signup-account">{status.user.email}</span>
-              <h1>Choose your username</h1>
-              <p>This becomes the first part of every page you publish.</p>
+              <div dangerouslySetInnerHTML={{ __html: renderSource(usernameSource || signInSource) }} />
             </div>
             <form className="username-form" onSubmit={saveUsername}>
               <label htmlFor="username">Username</label>

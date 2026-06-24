@@ -13,6 +13,7 @@ const FAVICON_LINK = '<link rel="icon" type="image/svg+xml" href="/favicon-v2.sv
 const EDITOR_ORIGIN = "https://built.at"
 const DEFAULT_DOMAIN = "built.at"
 const PLATFORM_OWNER_ID = "built-at-owner"
+const SIGNUP_PAGE_ID = "builtSignup"
 const EDITABLE_DOMAINS = new Set(["built.at", "nathanpuls.com", "fullpsych.com"])
 const RESERVED_USERNAMES = new Set(["admin", "api", "assets", "p", "signup"])
 const DEFAULT_FONT_STYLE = '<style data-built-default-font>html { font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }</style>'
@@ -149,6 +150,8 @@ function normalizeUsername(value) {
 function pagePublicPath(row) {
   const domain = normalizeDomain(row.domain)
   const path = row.path || ""
+
+  if (row.id === SIGNUP_PAGE_ID) return "/signup"
 
   if (domain !== DEFAULT_DOMAIN) {
     return path || `/p/${row.id}${row.slug ? `/${row.slug}` : ""}`
@@ -966,6 +969,16 @@ async function getPage(id, env, user = null) {
   return json(pageRowToResponse(row))
 }
 
+async function getManagedSignupPage(env) {
+  if (!env.DB) {
+    return json({ error: "DB binding is not configured." }, { status: 500 })
+  }
+
+  const row = await pageById(env, SIGNUP_PAGE_ID)
+  if (!row) return json({ page: null })
+  return json({ page: pageRowToResponse(row) })
+}
+
 async function updatePage(request, env, id, user = null) {
   if (!env.DB) {
     return json({ error: "DB binding is not configured." }, { status: 500 })
@@ -982,8 +995,13 @@ async function updatePage(request, env, id, user = null) {
   }
 
   const body = await request.json()
-  const path = normalizeRoutePath(body.path ?? existing.path ?? "")
-  const domain = normalizeDomain(body.domain ?? existing.domain)
+  const isSystemPage = existing.namespace === "system"
+  const path = isSystemPage
+    ? existing.path
+    : normalizeRoutePath(body.path ?? existing.path ?? "")
+  const domain = isSystemPage
+    ? normalizeDomain(existing.domain)
+    : normalizeDomain(body.domain ?? existing.domain)
   const ownerId = existing.owner_id || PLATFORM_OWNER_ID
   const namespace = existing.namespace || "platform"
   const faviconUrl = typeof body.faviconUrl === "string" ? body.faviconUrl.trim() : existing.favicon_url || ""
@@ -1085,6 +1103,10 @@ async function deletePage(env, id, user = null) {
 
   if (!canAccessPage(user, existing)) {
     return json({ error: "Page not found." }, { status: 404 })
+  }
+
+  if (existing.namespace === "system") {
+    return json({ error: "System pages cannot be deleted." }, { status: 403 })
   }
 
   const deletedAt = new Date().toISOString()
@@ -1474,6 +1496,10 @@ export default {
 
     if (url.pathname === "/api/auth/logout" && request.method === "POST") {
       return logout(request, env)
+    }
+
+    if (url.pathname === "/api/system/signup" && request.method === "GET") {
+      return getManagedSignupPage(env)
     }
 
     if (url.pathname === "/signup" && (request.method === "GET" || request.method === "HEAD")) {

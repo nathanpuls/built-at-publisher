@@ -47,15 +47,17 @@ function PageList({ pages, selectedId, onSelect, onDelete }) {
           <span className="meta">{page.path ? displayTitle(page) : permanentPath(page)}</span>
         </button>
         <TypeMark type={sourceType} />
-        <button className="delete-route" type="button" data-tooltip="Delete path" aria-label={`Delete ${adminPathLabel(page)}`} onClick={() => onDelete(page)}>
-          <svg aria-hidden="true" viewBox="0 0 24 24" width="15" height="15">
-            <path d="M3 6h18" />
-            <path d="M8 6V4h8v2" />
-            <path d="M19 6l-1 14H6L5 6" />
-            <path d="M10 11v5" />
-            <path d="M14 11v5" />
-          </svg>
-        </button>
+        {page.namespace === "system" ? <span className="delete-route" aria-hidden="true" /> : (
+          <button className="delete-route" type="button" data-tooltip="Delete path" aria-label={`Delete ${adminPathLabel(page)}`} onClick={() => onDelete(page)}>
+            <svg aria-hidden="true" viewBox="0 0 24 24" width="15" height="15">
+              <path d="M3 6h18" />
+              <path d="M8 6V4h8v2" />
+              <path d="M19 6l-1 14H6L5 6" />
+              <path d="M10 11v5" />
+              <path d="M14 11v5" />
+            </svg>
+          </button>
+        )}
       </div>
     )
   })
@@ -257,15 +259,17 @@ export function Sidebar({
                     </svg>
                     <span>{entry.folder}</span>
                   </button>
-                  <button className="delete-folder" type="button" data-tooltip="Delete folder paths" aria-label={`Delete ${entry.folder} folder paths`} onClick={() => onDeleteFolder(entry.pages)}>
-                    <svg aria-hidden="true" viewBox="0 0 24 24" width="15" height="15">
-                      <path d="M3 6h18" />
-                      <path d="M8 6V4h8v2" />
-                      <path d="M19 6l-1 14H6L5 6" />
-                      <path d="M10 11v5" />
-                      <path d="M14 11v5" />
-                    </svg>
-                  </button>
+                  {entry.pages.every((page) => page.namespace === "system") ? <span className="delete-folder" aria-hidden="true" /> : (
+                    <button className="delete-folder" type="button" data-tooltip="Delete folder paths" aria-label={`Delete ${entry.folder} folder paths`} onClick={() => onDeleteFolder(entry.pages.filter((page) => page.namespace !== "system"))}>
+                      <svg aria-hidden="true" viewBox="0 0 24 24" width="15" height="15">
+                        <path d="M3 6h18" />
+                        <path d="M8 6V4h8v2" />
+                        <path d="M19 6l-1 14H6L5 6" />
+                        <path d="M10 11v5" />
+                        <path d="M14 11v5" />
+                      </svg>
+                    </button>
+                  )}
                 </div>
                 <div className="folder-items">
                   <PageList pages={entry.pages} selectedId={selectedId} onSelect={onSelectPage} onDelete={onDeletePage} />

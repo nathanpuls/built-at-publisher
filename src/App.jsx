@@ -1200,6 +1200,7 @@ export default function App() {
                     ref={pathInputRef}
                     value={draft.path}
                     aria-label="Path"
+                    readOnly={selectedPage.namespace === "system"}
                     aria-invalid={Boolean(pathError)}
                     aria-describedby={pathError ? "path-error" : undefined}
                     aria-keyshortcuts="p"
