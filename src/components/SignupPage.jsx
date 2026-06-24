@@ -18,9 +18,9 @@ export function SignupPage() {
   const [username, setUsername] = useState("")
   const [availability, setAvailability] = useState({ checking: false, available: false, message: "" })
   const [error, setError] = useState(errorMessage(new URLSearchParams(window.location.search).get("error")))
-  const [signupSource, setSignupSource] = useState("")
+  const [signInSource, setSignInSource] = useState("")
+  const [usernameSource, setUsernameSource] = useState("")
   const usernameRef = useRef(null)
-  const [signInSource, usernameSource = ""] = signupSource.split(/\n\s*---\s*\n/, 2)
 
   useEffect(() => {
     let cancelled = false
@@ -28,7 +28,9 @@ export function SignupPage() {
     fetch("/api/system/signup")
       .then(readJson)
       .then((data) => {
-        if (!cancelled && data.page) setSignupSource(data.page.source || "")
+        if (cancelled) return
+        setSignInSource(data.signInPage?.source || "")
+        setUsernameSource(data.chooseUsernamePage?.source || "")
       })
       .catch(() => {})
 

@@ -13,7 +13,8 @@ const FAVICON_LINK = '<link rel="icon" type="image/svg+xml" href="/favicon-v2.sv
 const EDITOR_ORIGIN = "https://built.at"
 const DEFAULT_DOMAIN = "built.at"
 const PLATFORM_OWNER_ID = "built-at-owner"
-const SIGNUP_PAGE_ID = "builtSignup"
+const SIGN_IN_PAGE_ID = "builtSignup"
+const CHOOSE_USERNAME_PAGE_ID = "builtChooseUsername"
 const EDITABLE_DOMAINS = new Set(["built.at", "nathanpuls.com", "fullpsych.com"])
 const RESERVED_USERNAMES = new Set(["admin", "api", "assets", "p", "signup"])
 const DEFAULT_FONT_STYLE = '<style data-built-default-font>html { font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }</style>'
@@ -151,7 +152,8 @@ function pagePublicPath(row) {
   const domain = normalizeDomain(row.domain)
   const path = row.path || ""
 
-  if (row.id === SIGNUP_PAGE_ID) return "/signup"
+  if (row.id === SIGN_IN_PAGE_ID) return "/signup"
+  if (row.id === CHOOSE_USERNAME_PAGE_ID) return "/signup?choose=username"
 
   if (domain !== DEFAULT_DOMAIN) {
     return path || `/p/${row.id}${row.slug ? `/${row.slug}` : ""}`
@@ -974,9 +976,15 @@ async function getManagedSignupPage(env) {
     return json({ error: "DB binding is not configured." }, { status: 500 })
   }
 
-  const row = await pageById(env, SIGNUP_PAGE_ID)
-  if (!row) return json({ page: null })
-  return json({ page: pageRowToResponse(row) })
+  const [signInRow, chooseUsernameRow] = await Promise.all([
+    pageById(env, SIGN_IN_PAGE_ID),
+    pageById(env, CHOOSE_USERNAME_PAGE_ID),
+  ])
+
+  return json({
+    signInPage: signInRow ? pageRowToResponse(signInRow) : null,
+    chooseUsernamePage: chooseUsernameRow ? pageRowToResponse(chooseUsernameRow) : null,
+  })
 }
 
 async function updatePage(request, env, id, user = null) {
