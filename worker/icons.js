@@ -1,6 +1,7 @@
-function iconParams({ domain, pageId, size, purpose = "any" }) {
+function iconParams({ domain, pageId, size, purpose = "any", version = "" }) {
   const params = new URLSearchParams({ domain, size: String(size), purpose })
   if (pageId) params.set("page", pageId)
+  if (version) params.set("v", version)
   return params
 }
 
@@ -59,6 +60,9 @@ export function createIconHandlers({ calculatedPageTitle, getDomainSettings, jso
       pageId: page?.id || "",
       source: page?.favicon_url || settings.faviconUrl || "/favicon-v2.svg",
       title: page ? calculatedPageTitle(page) : domain,
+      version: page?.favicon_url
+        ? page.updated_at || page.favicon_url
+        : settings.updatedAt || "",
     }
   }
 
@@ -94,13 +98,13 @@ export function createIconHandlers({ calculatedPageTitle, getDomainSettings, jso
     const startUrl = context.page ? pagePublicPath(context.page) : "/"
     const icons = [192, 512].flatMap((size) => [
       {
-        src: `/api/icon?${iconParams({ domain: context.domain, pageId: context.pageId, size })}`,
+        src: `/api/icon?${iconParams({ domain: context.domain, pageId: context.pageId, size, version: context.version })}`,
         sizes: `${size}x${size}`,
         type: "image/png",
         purpose: "any",
       },
       {
-        src: `/api/icon?${iconParams({ domain: context.domain, pageId: context.pageId, size, purpose: "maskable" })}`,
+        src: `/api/icon?${iconParams({ domain: context.domain, pageId: context.pageId, size, purpose: "maskable", version: context.version })}`,
         sizes: `${size}x${size}`,
         type: "image/png",
         purpose: "maskable",

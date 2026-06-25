@@ -60,8 +60,12 @@ function escapeHtml(value) {
     .replace(/"/g, "&quot;")
 }
 
-function iconLinks({ domain = DEFAULT_DOMAIN, pageId = "" } = {}) {
-  const scope = `domain=${encodeURIComponent(domain)}${pageId ? `&page=${encodeURIComponent(pageId)}` : ""}`
+function iconLinks({ domain = DEFAULT_DOMAIN, pageId = "", version = "" } = {}) {
+  const scope = [
+    `domain=${encodeURIComponent(domain)}`,
+    pageId ? `page=${encodeURIComponent(pageId)}` : "",
+    version ? `v=${encodeURIComponent(version)}` : "",
+  ].filter(Boolean).join("&")
   return [
     `<link rel="icon" type="image/png" sizes="16x16" href="/api/icon?${scope}&size=16">`,
     `<link rel="icon" type="image/png" sizes="32x32" href="/api/icon?${scope}&size=32">`,
@@ -92,8 +96,8 @@ function withFavicon(html, iconContext = {}) {
   return document
 }
 
-function withPageMetadata(html, { title = "", domain = DEFAULT_DOMAIN, pageId = "" } = {}) {
-  let document = withFavicon(html, { domain, pageId })
+function withPageMetadata(html, { title = "", domain = DEFAULT_DOMAIN, pageId = "", iconVersion = "" } = {}) {
+  let document = withFavicon(html, { domain, pageId, version: iconVersion })
   const titleTag = `<title>${escapeHtml(title)}</title>`
 
   if (/<title[^>]*>[\s\S]*?<\/title>/i.test(document)) {
@@ -1301,7 +1305,7 @@ async function renderUserPath(usernameValue, pathname, env) {
   return row ? renderPageRow(row, env) : null
 }
 
-async function renderPageRow(row) {
+async function renderPageRow(row, env) {
   if ((row.source_type || "").toLowerCase() === "redirect") {
     return redirectResponse(redirectUrl(row.source) || row.source)
   }
@@ -1312,10 +1316,16 @@ async function renderPageRow(row) {
     ? withMarkdownLinkStyle(html)
     : html
 
+  const domain = normalizeDomain(row.domain)
+  const iconVersion = row.favicon_url
+    ? row.updated_at || row.favicon_url
+    : (await getDomainSettings(env, domain)).updatedAt || ""
+
   return new Response(withPageMetadata(htmlDocument(pageHtml), {
     title: calculatedPageTitle(row),
-    domain: normalizeDomain(row.domain),
+    domain,
     pageId: row.id,
+    iconVersion,
   }), {
     headers: {
       "content-type": "text/html; charset=utf-8",
