@@ -1385,9 +1385,9 @@ export default function App() {
                           aria-pressed={selectedPage.isHome}
                         >
                           <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true">
-                            <path d="m3 11 9-8 9 8" />
-                            <path d="M5 10v10h14V10" />
-                            <path d="M9 20v-6h6v6" />
+                            <path d="M4.5 10.6 12 4l7.5 6.6" />
+                            <path d="M6.5 9.25V19a1 1 0 0 0 1 1h9a1 1 0 0 0 1-1V9.25" />
+                            <path d="M9.5 20v-5.5a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1V20" />
                           </svg>
                         </button>
                   </span>
