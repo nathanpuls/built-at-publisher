@@ -1,5 +1,5 @@
 export const DEFAULT_DOMAIN = "built.at"
-export const EDITABLE_DOMAINS = ["built.at", "nathanpuls.com", "fullpsych.com"]
+export const EDITABLE_DOMAINS = ["built.at", "nathanpuls.com", "fullpsych.com", "ends.at"]
 export const PLATFORM_OWNER_ID = "built-at-owner"
 export const SIGN_IN_PAGE_ID = "builtSignup"
 export const CHOOSE_USERNAME_PAGE_ID = "builtChooseUsername"

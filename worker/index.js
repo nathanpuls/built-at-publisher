@@ -15,7 +15,17 @@ const DEFAULT_DOMAIN = "built.at"
 const PLATFORM_OWNER_ID = "built-at-owner"
 const SIGN_IN_PAGE_ID = "builtSignup"
 const CHOOSE_USERNAME_PAGE_ID = "builtChooseUsername"
-const EDITABLE_DOMAINS = new Set(["built.at", "nathanpuls.com", "fullpsych.com"])
+const EDITABLE_DOMAINS = new Set(["built.at", "nathanpuls.com", "fullpsych.com", "ends.at"])
+const DOMAIN_FALLBACK_ORIGINS = new Map([
+  ["ends.at", "https://ends-notes.pages.dev"],
+])
+const BUILT_PUBLIC_API_PATHS = new Set([
+  "/api/domain-favicon",
+  "/api/domain-favicon-v2",
+  "/api/icon",
+  "/api/icon.ico",
+  "/api/manifest",
+])
 const RESERVED_USERNAMES = new Set(["admin", "api", "assets", "p", "signup"])
 const DEFAULT_FONT_STYLE = '<style data-built-default-font>html { font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }</style>'
 const MARKDOWN_LINK_STYLE = '<style data-built-markdown-links>a { color: #111827; text-decoration: underline; text-decoration-color: #6b7280; text-underline-offset: 0.25em; }</style>'
@@ -173,6 +183,10 @@ function pagePublicPath(row) {
 function requestDomain(request) {
   const hostname = new URL(request.url).hostname.toLowerCase().replace(/^www\./, "")
   return normalizeDomain(hostname)
+}
+
+function domainFallbackOrigin(domain) {
+  return DOMAIN_FALLBACK_ORIGINS.get(normalizeDomain(domain)) || ""
 }
 
 const {
@@ -525,18 +539,49 @@ function redirectResponse(url) {
   })
 }
 
-function subdomainPath(hostname) {
-  if (!hostname.endsWith(".built.at")) return ""
+function mappedSubdomainRedirect(hostname, pathname = "/", search = "") {
+  const normalizedHostname = hostname.toLowerCase()
 
-  const subdomain = hostname.slice(0, -".built.at".length)
+  for (const domain of EDITABLE_DOMAINS) {
+    if (!normalizedHostname.endsWith(`.${domain}`)) continue
 
-  if (!subdomain || subdomain === "www") return ""
+    const subdomain = normalizedHostname.slice(0, -(domain.length + 1))
+    if (!subdomain || subdomain === "www") return ""
 
-  return subdomain
-    .split(".")
-    .filter(Boolean)
-    .map((part) => encodeURIComponent(part))
-    .join("/")
+    const mappedPath = subdomain
+      .split(".")
+      .filter(Boolean)
+      .map((part) => encodeURIComponent(part))
+      .join("/")
+
+    if (!mappedPath) return ""
+
+    const restPath = pathname === "/" ? "" : pathname
+    return `https://${domain}/${mappedPath}${restPath}${search}`
+  }
+
+  return ""
+}
+
+async function proxyDomainFallback(request, domain) {
+  const origin = domainFallbackOrigin(domain)
+  if (!origin) return null
+
+  const requestUrl = new URL(request.url)
+  const fallbackUrl = new URL(`${requestUrl.pathname}${requestUrl.search}`, origin)
+  const headers = new Headers(request.headers)
+
+  headers.delete("host")
+  headers.set("x-built-at-fallback-domain", normalizeDomain(domain))
+
+  const fallbackRequest = new Request(fallbackUrl, {
+    method: request.method,
+    headers,
+    body: request.method === "GET" || request.method === "HEAD" ? null : request.body,
+    redirect: request.redirect,
+  })
+
+  return fetch(fallbackRequest)
 }
 
 function contentToHtml(body) {
@@ -1358,6 +1403,43 @@ async function renderHome(env, domain = DEFAULT_DOMAIN) {
   return renderPageRow(row, env)
 }
 
+async function renderDomainPathRequest(request, env) {
+  if (!env.DB) {
+    return new Response("DB binding is not configured.", { status: 500 })
+  }
+
+  const url = new URL(request.url)
+  const domain = normalizeDomain(url.searchParams.get("domain") || DEFAULT_DOMAIN)
+  const path = normalizeRoutePath(url.searchParams.get("path") || "/")
+  const row = path
+    ? await env.DB.prepare(
+      `SELECT pages.*, users.username
+       FROM pages
+       LEFT JOIN users ON users.id = pages.owner_id
+       WHERE pages.domain = ? AND pages.namespace = 'platform'
+         AND pages.path = ? AND pages.deleted_at IS NULL
+       LIMIT 1`
+    ).bind(domain, path).first()
+    : await env.DB.prepare(
+      `SELECT pages.*, users.username
+       FROM pages
+       LEFT JOIN users ON users.id = pages.owner_id
+       WHERE pages.domain = ? AND pages.namespace = 'platform'
+         AND pages.is_home = 1 AND pages.deleted_at IS NULL
+       ORDER BY pages.updated_at DESC
+       LIMIT 1`
+    ).bind(domain).first()
+
+  if (!row) {
+    return new Response(null, {
+      status: 204,
+      headers: { "cache-control": "no-store" },
+    })
+  }
+
+  return renderPageRow(row, env)
+}
+
 async function renderAdmin(request, env) {
   const requestUrl = new URL(request.url)
   const domain = normalizeDomain(requestUrl.searchParams.get("domain") || DEFAULT_DOMAIN)
@@ -1477,11 +1559,21 @@ export default {
       return redirectResponse(`https://built.at/admin${url.search}`)
     }
 
-    const mappedSubdomainPath = subdomainPath(url.hostname)
+    const subdomainRedirect = mappedSubdomainRedirect(url.hostname, url.pathname, url.search)
 
-    if (mappedSubdomainPath) {
-      const restPath = url.pathname === "/" ? "" : url.pathname
-      return redirectResponse(`https://built.at/${mappedSubdomainPath}${restPath}${url.search}`)
+    if (subdomainRedirect) {
+      return redirectResponse(subdomainRedirect)
+    }
+
+    const domain = requestDomain(request)
+    const fallbackOrigin = domainFallbackOrigin(domain)
+
+    if (
+      fallbackOrigin &&
+      url.pathname.startsWith("/api/") &&
+      !BUILT_PUBLIC_API_PATHS.has(url.pathname)
+    ) {
+      return proxyDomainFallback(request, domain)
     }
 
     if (request.method === "OPTIONS") {
@@ -1620,6 +1712,10 @@ export default {
       return publishShortcutPage(request, env)
     }
 
+    if (url.pathname === "/api/internal/render-path" && (request.method === "GET" || request.method === "HEAD")) {
+      return renderDomainPathRequest(request, env)
+    }
+
     const docMatch = url.pathname.match(/^\/api\/doc\/([A-Za-z0-9_-]+)$/)
 
     if (docMatch && request.method === "GET") {
@@ -1641,7 +1737,13 @@ export default {
     }
 
     if (url.pathname === "/" && (request.method === "GET" || request.method === "HEAD")) {
-      return renderHome(env, requestDomain(request))
+      const homeResponse = await renderHome(env, domain)
+
+      if (fallbackOrigin && homeResponse.status === 404) {
+        return proxyDomainFallback(request, domain)
+      }
+
+      return homeResponse
     }
 
     if (url.pathname === "/api/media" && request.method === "POST") {
@@ -1665,23 +1767,31 @@ export default {
       !url.pathname.startsWith("/assets/") &&
       !url.pathname.includes(".")
     ) {
-      const routeResponse = await renderRoutePath(url.pathname, env, requestDomain(request))
+      const routeResponse = await renderRoutePath(url.pathname, env, domain)
 
       if (routeResponse) {
         return routeResponse
       }
 
-      if (requestDomain(request) === DEFAULT_DOMAIN) {
+      if (domain === DEFAULT_DOMAIN) {
         const [, username = "", userPath = ""] = url.pathname.match(/^\/([^/]+)(?:\/(.*))?$/) || []
         const userResponse = await renderUserPath(username, userPath ? `/${userPath}` : "", env)
         if (userResponse) return userResponse
       }
 
+      if (fallbackOrigin) {
+        return proxyDomainFallback(request, domain)
+      }
+
       return notFoundPage({
         pathname: url.pathname,
         message: "There is not a published route at this path yet.",
-        faviconUrl: (await getDomainSettings(env, requestDomain(request))).faviconHref,
+        faviconUrl: (await getDomainSettings(env, domain)).faviconHref,
       })
+    }
+
+    if (fallbackOrigin) {
+      return proxyDomainFallback(request, domain)
     }
 
     if (env.ASSETS) {

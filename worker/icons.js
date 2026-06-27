@@ -73,6 +73,17 @@ export function createIconHandlers({ calculatedPageTitle, getDomainSettings, jso
     const isMaskable = url.searchParams.get("purpose") === "maskable"
     const source = await sourceResponse(request, env, context.source)
     if (!source?.ok || !source.body) return new Response("Icon source could not be loaded.", { status: 502 })
+    const sourceContentType = source.headers.get("content-type") || ""
+
+    if (sourceContentType.toLowerCase().includes("svg")) {
+      return new Response(request.method === "HEAD" ? null : source.body, {
+        headers: {
+          "content-type": sourceContentType || "image/svg+xml",
+          "cache-control": "public, max-age=86400",
+        },
+      })
+    }
+
     let image = env.IMAGES?.input(source.body)
     if (image) {
       image = isMaskable
