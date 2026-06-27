@@ -127,20 +127,14 @@ button:focus-visible,
 }
 
 .domain-menu-trigger svg {
-  fill: none;
-  stroke: currentColor;
-  stroke-linecap: round;
-  stroke-width: 1.8;
+  width: 17px;
+  height: 17px;
 }
 
 .domain-menu svg,
 .settings-menu svg,
 .settings-trigger svg {
-  fill: none;
-  stroke: currentColor;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-width: 1.7;
+  flex: 0 0 auto;
 }
 
 .visually-hidden {
@@ -500,10 +494,8 @@ h1 {
 }
 
 .clear-search svg {
-  fill: none;
-  stroke: currentColor;
-  stroke-linecap: round;
-  stroke-width: 1.8;
+  width: 16px;
+  height: 16px;
 }
 
 input,
@@ -569,11 +561,8 @@ textarea {
 }
 
 .trash-heading-title svg {
-  fill: none;
-  stroke: currentColor;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-width: 2;
+  width: 17px;
+  height: 17px;
 }
 
 .trash-heading strong {
@@ -638,11 +627,7 @@ textarea {
 
 .trash-item svg,
 .trash-toggle svg {
-  fill: none;
-  stroke: currentColor;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-width: 1.8;
+  flex: 0 0 auto;
 }
 
 .trash-toggle {
@@ -731,11 +716,8 @@ textarea {
 }
 
 .delete-folder svg {
-  fill: none;
-  stroke: currentColor;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-width: 1.8;
+  width: 15px;
+  height: 15px;
 }
 
 .folder-label:hover {
@@ -755,11 +737,6 @@ textarea {
 
 .folder-icon {
   flex: 0 0 auto;
-  fill: none;
-  stroke: currentColor;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-width: 1.7;
 }
 
 .folder-group.is-collapsed .folder-caret {
@@ -885,19 +862,13 @@ textarea {
 }
 
 .delete-route svg {
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.8;
-  stroke-linecap: round;
-  stroke-linejoin: round;
+  width: 15px;
+  height: 15px;
 }
 
 .kind svg {
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.8;
-  stroke-linecap: round;
-  stroke-linejoin: round;
+  width: 14px;
+  height: 14px;
 }
 
 .workspace {
@@ -1047,11 +1018,6 @@ textarea {
 .copy-url-menu svg {
   width: 16px;
   height: 16px;
-  fill: none;
-  stroke: currentColor;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-width: 2;
 }
 
 .copy-url-menu {
@@ -1555,11 +1521,8 @@ label {
 }
 
 .source-tool-action svg {
-  fill: none;
-  stroke: currentColor;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-width: 1.8;
+  width: 17px;
+  height: 17px;
 }
 
 [data-tooltip] {

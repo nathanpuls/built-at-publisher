@@ -1,3 +1,4 @@
+import { ArrowLeft, CaretRight, Check, Folder, LinkSimple, List, Trash, X } from "@phosphor-icons/react"
 import { detectSource } from "../lib/content"
 import {
   EDITABLE_DOMAINS,
@@ -19,10 +20,7 @@ function TypeMark({ type }) {
   if (type === "redirect") {
     return (
       <span className="kind" data-tooltip="Link">
-        <svg aria-hidden="true" viewBox="0 0 24 24" width="14" height="14">
-          <path d="M10 13a5 5 0 0 0 7.1 0l2-2a5 5 0 0 0-7.1-7.1l-1.1 1.1" />
-          <path d="M14 11a5 5 0 0 0-7.1 0l-2 2a5 5 0 0 0 7.1 7.1l1.1-1.1" />
-        </svg>
+        <LinkSimple size={14} weight="bold" aria-hidden="true" />
       </span>
     )
   }
@@ -49,13 +47,7 @@ function PageList({ pages, selectedId, onSelect, onDelete }) {
         <TypeMark type={sourceType} />
         {page.namespace === "system" ? <span className="delete-route" aria-hidden="true" /> : (
           <button className="delete-route" type="button" data-tooltip="Delete path" aria-label={`Delete ${adminPathLabel(page)}`} onClick={() => onDelete(page)}>
-            <svg aria-hidden="true" viewBox="0 0 24 24" width="15" height="15">
-              <path d="M3 6h18" />
-              <path d="M8 6V4h8v2" />
-              <path d="M19 6l-1 14H6L5 6" />
-              <path d="M10 11v5" />
-              <path d="M14 11v5" />
-            </svg>
+            <Trash size={15} weight="bold" aria-hidden="true" />
           </button>
         )}
       </div>
@@ -81,13 +73,7 @@ function TrashList({ pages, onDeletePermanently, onRestore }) {
       </span>
       <button type="button" onClick={() => onRestore(page)}>Restore</button>
       <button className="trash-delete" type="button" onClick={() => onDeletePermanently(page)} aria-label={`Permanently delete ${adminPathLabel(page)}`}>
-        <svg aria-hidden="true" viewBox="0 0 24 24" width="15" height="15">
-          <path d="M3 6h18" />
-          <path d="M8 6V4h8v2" />
-          <path d="M19 6l-1 14H6L5 6" />
-          <path d="M10 11v5" />
-          <path d="M14 11v5" />
-        </svg>
+        <Trash size={15} weight="bold" aria-hidden="true" />
       </button>
     </div>
   ))
@@ -141,9 +127,7 @@ export function Sidebar({
             aria-label="Switch workspace"
             aria-expanded={isDomainMenuOpen}
           >
-            <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true">
-              <path d="M4 6h16M4 12h16M4 18h16" />
-            </svg>
+            <List size={17} weight="bold" aria-hidden="true" />
           </button>
           <input ref={faviconInputRef} className="visually-hidden" type="file" accept="image/*" onChange={onUploadFavicon} />
           <button className={`routes-home ${isUserWorkspace ? "is-personal" : ""}`} type="button" onClick={onResetAdminHome} title={isUserWorkspace ? `built.at/${account.username}` : activeDomain}>
@@ -165,12 +149,12 @@ export function Sidebar({
                       key={domain}
                     >
                       <span>{domain}</span>
-                      {workspaceMode === "platform" && domain === activeDomain ? <span aria-hidden="true">✓</span> : null}
+                      {workspaceMode === "platform" && domain === activeDomain ? <Check size={14} weight="bold" aria-hidden="true" /> : null}
                     </button>
                   ))}
                   <button className={workspaceMode === "personal" ? "is-active" : ""} type="button" onClick={onSwitchToPersonal}>
                     <span>{account.username ? `@${account.username}` : "Choose username"}</span>
-                    {workspaceMode === "personal" ? <span aria-hidden="true">✓</span> : null}
+                    {workspaceMode === "personal" ? <Check size={14} weight="bold" aria-hidden="true" /> : null}
                   </button>
                   {account.username ? <a href={`/${account.username}`} target="_blank" rel="noreferrer">View personal page</a> : null}
                   <button type="button" onClick={onSignOut}>Sign out</button>
@@ -192,7 +176,7 @@ export function Sidebar({
                   key={domain}
                 >
                   <span>{domain}</span>
-                  {domain === activeDomain ? <span aria-hidden="true">✓</span> : null}
+                  {domain === activeDomain ? <Check size={14} weight="bold" aria-hidden="true" /> : null}
                 </button>
               ))}
             </div>
@@ -218,9 +202,7 @@ export function Sidebar({
           />
           {query ? (
             <button className="clear-search" type="button" onClick={onClearSearch} aria-label="Clear search" title="Clear search">
-              <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-                <path d="m7 7 10 10M17 7 7 17" />
-              </svg>
+              <X size={16} weight="bold" aria-hidden="true" />
             </button>
           ) : null}
         </div>
@@ -232,9 +214,7 @@ export function Sidebar({
             <div className="trash-heading">
               <div className="trash-heading-title">
                 <button type="button" onClick={onToggleTrash} aria-label="Back to paths" data-tooltip="Back to paths (Esc)">
-                  <svg aria-hidden="true" viewBox="0 0 24 24" width="17" height="17">
-                    <path d="m15 18-6-6 6-6" />
-                  </svg>
+                  <ArrowLeft size={17} weight="bold" aria-hidden="true" />
                 </button>
                 <strong>Trash</strong>
               </div>
@@ -252,22 +232,13 @@ export function Sidebar({
               <div className={`folder-group ${collapsedFolders.has(entry.folder) ? "is-collapsed" : ""}`} key={entry.folder}>
                 <div className="folder-heading">
                   <button className="folder-label" type="button" onClick={() => onToggleFolder(entry.folder)} aria-expanded={!collapsedFolders.has(entry.folder)}>
-                    <span className="folder-caret" aria-hidden="true">›</span>
-                    <svg className="folder-icon" aria-hidden="true" viewBox="0 0 24 24" width="15" height="15">
-                      <path d="M3 6.5h6l2 2h10v9.5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z" />
-                      <path d="M3 9h18" />
-                    </svg>
+                    <CaretRight className="folder-caret" size={14} weight="bold" aria-hidden="true" />
+                    <Folder className="folder-icon" size={15} weight="bold" aria-hidden="true" />
                     <span>{entry.folder}</span>
                   </button>
                   {entry.pages.every((page) => page.namespace === "system") ? <span className="delete-folder" aria-hidden="true" /> : (
                     <button className="delete-folder" type="button" data-tooltip="Delete folder paths" aria-label={`Delete ${entry.folder} folder paths`} onClick={() => onDeleteFolder(entry.pages.filter((page) => page.namespace !== "system"))}>
-                      <svg aria-hidden="true" viewBox="0 0 24 24" width="15" height="15">
-                        <path d="M3 6h18" />
-                        <path d="M8 6V4h8v2" />
-                        <path d="M19 6l-1 14H6L5 6" />
-                        <path d="M10 11v5" />
-                        <path d="M14 11v5" />
-                      </svg>
+                      <Trash size={15} weight="bold" aria-hidden="true" />
                     </button>
                   )}
                 </div>
@@ -281,11 +252,7 @@ export function Sidebar({
       </div>
       {!isTrashOpen ? (
         <button className="trash-toggle" type="button" onClick={onToggleTrash}>
-          <svg aria-hidden="true" viewBox="0 0 24 24" width="16" height="16">
-            <path d="M3 6h18" />
-            <path d="M8 6V4h8v2" />
-            <path d="M19 6l-1 14H6L5 6" />
-          </svg>
+          <Trash size={16} weight="bold" aria-hidden="true" />
           <span>Trash</span>
           {trashPages.length ? <span className="trash-count">{trashPages.length}</span> : null}
         </button>

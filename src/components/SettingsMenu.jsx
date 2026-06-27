@@ -1,3 +1,5 @@
+import { GearSix, ImageSquare, UploadSimple } from "@phosphor-icons/react"
+
 export function SettingsMenu({
   activeDomain,
   canManageSite = true,
@@ -47,10 +49,7 @@ export function SettingsMenu({
         aria-label={`Settings for ${activeDomain}`}
         aria-expanded={isOpen}
       >
-        <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true">
-          <circle cx="12" cy="12" r="3" />
-          <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-4V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H2.8v-4H3a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1a1.7 1.7 0 0 0 1.9.3A1.7 1.7 0 0 0 10 3v-.2h4V3a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v4H21a1.7 1.7 0 0 0-1.6 1Z" />
-        </svg>
+        <GearSix size={17} weight="bold" aria-hidden="true" />
       </button>
       {isOpen ? (
         <div className="settings-menu">
@@ -71,9 +70,7 @@ export function SettingsMenu({
               </section>
               <button type="button" onClick={onChooseFavicon}>
                 <span>Choose site icon</span>
-                <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-                  <path d="M12 5v14M5 12h14" />
-                </svg>
+                <UploadSimple size={16} weight="bold" aria-hidden="true" />
               </button>
               <div className="favicon-url-control">
                 <input
@@ -118,9 +115,7 @@ export function SettingsMenu({
               <input ref={pageFaviconInputRef} className="visually-hidden" type="file" accept="image/*" onChange={onUploadPageFavicon} />
               <button type="button" onClick={onChoosePageFavicon}>
                 <span>Choose page icon</span>
-                <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-                  <path d="M12 5v14M5 12h14" />
-                </svg>
+                <ImageSquare size={16} weight="bold" aria-hidden="true" />
               </button>
               <div className="favicon-url-control">
                 <input

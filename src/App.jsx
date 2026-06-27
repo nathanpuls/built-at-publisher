@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react"
+import { CaretDown, Check, Clipboard, Copy, CopySimple, HouseSimple } from "@phosphor-icons/react"
 import { SettingsMenu } from "./components/SettingsMenu"
 import { Sidebar } from "./components/Sidebar"
 import { detectSource, previewDocument, redirectUrl, renderSource, titleFromSource } from "./lib/content"
@@ -1274,26 +1275,20 @@ export default function App() {
                     aria-label="More copy options"
                     aria-expanded={isCopyMenuOpen}
                   >
-                    <svg viewBox="0 0 24 24" aria-hidden="true">
-                      <path d="m8 10 4 4 4-4" />
-                    </svg>
+                    <CaretDown size={16} weight="bold" aria-hidden="true" />
                   </button>
                   {isCopyMenuOpen ? (
                     <div className="copy-url-menu">
                       <button type="button" onClick={copyPublicUrl}>
                         <span>Copy public URL</span>
                         {copyStatus ? (
-                          <svg viewBox="0 0 24 24" aria-hidden="true">
-                            <path d="m5 12 4 4L19 6" />
-                          </svg>
+                          <Check size={16} weight="bold" aria-hidden="true" />
                         ) : null}
                       </button>
                       <button type="button" onClick={copyPermanentUrl}>
                         <span>Copy permanent link</span>
                         {permanentCopyStatus ? (
-                          <svg viewBox="0 0 24 24" aria-hidden="true">
-                            <path d="m5 12 4 4L19 6" />
-                          </svg>
+                          <Check size={16} weight="bold" aria-hidden="true" />
                         ) : null}
                       </button>
                     </div>
@@ -1329,14 +1324,9 @@ export default function App() {
                           aria-keyshortcuts="c"
                         >
                           {sourceCopyStatus ? (
-                            <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true">
-                              <path d="m5 12 4 4L19 6" />
-                            </svg>
+                            <Check size={17} weight="bold" aria-hidden="true" />
                           ) : (
-                            <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true">
-                              <rect x="9" y="9" width="10" height="10" rx="2" />
-                              <path d="M15 9V7a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2" />
-                            </svg>
+                            <Copy size={17} weight="bold" aria-hidden="true" />
                           )}
                         </button>
                         <button
@@ -1348,15 +1338,9 @@ export default function App() {
                           aria-keyshortcuts="v"
                         >
                           {sourcePasteStatus ? (
-                            <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true">
-                              <path d="m5 12 4 4L19 6" />
-                            </svg>
+                            <Check size={17} weight="bold" aria-hidden="true" />
                           ) : (
-                            <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true">
-                              <path d="M9 5h6" />
-                              <path d="M9 3h6v4H9z" />
-                              <path d="M7 5H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-1" />
-                            </svg>
+                            <Clipboard size={17} weight="bold" aria-hidden="true" />
                           )}
                         </button>
                         <button
@@ -1367,11 +1351,7 @@ export default function App() {
                           aria-label="Duplicate source into a new page"
                           aria-keyshortcuts="d"
                         >
-                          <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true">
-                            <rect x="8" y="8" width="11" height="11" rx="2" />
-                            <path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2" />
-                            <path d="M13.5 11v5M11 13.5h5" />
-                          </svg>
+                          <CopySimple size={17} weight="bold" aria-hidden="true" />
                         </button>
                         <button
                           className={`source-tool-action home-tool-action ${selectedPage.isHome || homeStatus ? "is-home" : ""}`}
@@ -1384,10 +1364,7 @@ export default function App() {
                           aria-keyshortcuts="h"
                           aria-pressed={selectedPage.isHome}
                         >
-                          <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true">
-                            <path d="M3.5 10.75 12 3.5l8.5 7.25" />
-                            <path d="M5.75 9.5v9.25a1.25 1.25 0 0 0 1.25 1.25h10a1.25 1.25 0 0 0 1.25-1.25V9.5" />
-                          </svg>
+                          <HouseSimple size={17} weight="bold" aria-hidden="true" />
                         </button>
                   </span>
                 </div>
