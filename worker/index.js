@@ -510,7 +510,7 @@ function notFoundPage({ pathname = "", message = "This page does not exist yet."
     status: 404,
     headers: {
       "content-type": "text/html; charset=utf-8",
-      "cache-control": "public, max-age=60",
+      "cache-control": "public, max-age=5, must-revalidate",
     },
   })
 }
@@ -1329,7 +1329,7 @@ async function renderPageRow(row, env) {
   }), {
     headers: {
       "content-type": "text/html; charset=utf-8",
-      "cache-control": "public, max-age=60",
+      "cache-control": "public, max-age=5, must-revalidate",
     },
   })
 }
