@@ -282,7 +282,7 @@ export default function App() {
       favicon.href = resolvedFaviconUrl
       document.head.append(favicon)
     }
-  }, [activeDomain, domainSettings.faviconHref, domainSettings.faviconUrl, domainSettings.loadedDomain, domainSettings.updatedAt])
+  }, [activeDomain, domainSettings.effectiveFaviconUrl, domainSettings.faviconHref, domainSettings.faviconUrl, domainSettings.loadedDomain, domainSettings.updatedAt])
 
   useEffect(() => {
     if (!selectedPage) return

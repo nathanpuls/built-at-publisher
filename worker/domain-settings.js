@@ -5,11 +5,17 @@ export function createDomainSettingsHandlers({
   requestDomain,
 }) {
   function roundedFaviconUrl(settings = {}) {
-    if (!settings.faviconUrl) return "/favicon-v2.svg"
+    if (!settings.effectiveFaviconUrl) return "/favicon-v2.svg"
 
     const params = new URLSearchParams({ domain: settings.domain || defaultDomain })
     if (settings.updatedAt) params.set("v", settings.updatedAt)
     return `/api/domain-favicon-v2?${params}`
+  }
+
+  async function domainSettingsRow(env, domain) {
+    return env.DB.prepare(
+      "SELECT domain, favicon_url AS faviconUrl, updated_at AS updatedAt FROM domain_settings WHERE domain = ?"
+    ).bind(domain).first()
   }
 
   async function getDomainSettings(env, domain = defaultDomain) {
@@ -18,11 +24,13 @@ export function createDomainSettingsHandlers({
     }
 
     const normalizedDomain = normalizeDomain(domain)
-    const row = await env.DB.prepare(
-      "SELECT domain, favicon_url AS faviconUrl, updated_at AS updatedAt FROM domain_settings WHERE domain = ?"
-    ).bind(normalizedDomain).first()
+    const row = await domainSettingsRow(env, normalizedDomain)
+    const defaultRow = normalizedDomain === defaultDomain ? null : await domainSettingsRow(env, defaultDomain)
 
     const settings = row || { domain: normalizedDomain, faviconUrl: "", updatedAt: null }
+    const inheritedFaviconUrl = !settings.faviconUrl ? defaultRow?.faviconUrl || "" : ""
+    const effectiveFaviconUrl = settings.faviconUrl || inheritedFaviconUrl
+    const effectiveUpdatedAt = settings.faviconUrl ? settings.updatedAt : defaultRow?.updatedAt || settings.updatedAt
     const history = await env.DB.prepare(
       `SELECT favicon_url AS faviconUrl, created_at AS createdAt
        FROM domain_favicon_history
@@ -33,7 +41,13 @@ export function createDomainSettingsHandlers({
 
     return {
       ...settings,
-      faviconHref: roundedFaviconUrl(settings),
+      inheritedFaviconUrl,
+      effectiveFaviconUrl,
+      faviconHref: roundedFaviconUrl({
+        ...settings,
+        effectiveFaviconUrl,
+        updatedAt: effectiveUpdatedAt,
+      }),
       recentFavicons: history.results || [],
     }
   }
@@ -103,7 +117,9 @@ export function createDomainSettingsHandlers({
     const url = new URL(request.url)
     const settings = await getDomainSettings(env, url.searchParams.get("domain") || requestDomain(request))
 
-    if (!settings.faviconUrl) {
+    const sourceUrl = settings.effectiveFaviconUrl || settings.faviconUrl
+
+    if (!sourceUrl) {
       return env.ASSETS?.fetch(new Request(new URL("/favicon-v2.svg", request.url), request)) ||
         new Response("Not found", { status: 404 })
     }
@@ -111,8 +127,8 @@ export function createDomainSettingsHandlers({
     let contentType = "image/png"
     let bytes
 
-    if (settings.faviconUrl.startsWith("/api/media/file/")) {
-      const key = decodeURIComponent(settings.faviconUrl.replace(/^\/api\/media\/file\//, ""))
+    if (sourceUrl.startsWith("/api/media/file/")) {
+      const key = decodeURIComponent(sourceUrl.replace(/^\/api\/media\/file\//, ""))
       const object = await env.MEDIA_BUCKET?.get(key)
 
       if (!object) {
@@ -122,7 +138,7 @@ export function createDomainSettingsHandlers({
       contentType = object.httpMetadata?.contentType || contentType
       bytes = new Uint8Array(await object.arrayBuffer())
     } else {
-      const sourceResponse = await fetch(settings.faviconUrl, {
+      const sourceResponse = await fetch(sourceUrl, {
         cf: { cacheTtl: 3600, cacheEverything: true },
       })
 

@@ -22,7 +22,7 @@ export function SettingsMenu({
   pageFaviconUrlDraft,
   onUploadPageFavicon,
 }) {
-  const sitePreview = domainSettings.faviconUrl || "/favicon-v2.svg"
+  const sitePreview = domainSettings.faviconHref || domainSettings.effectiveFaviconUrl || domainSettings.faviconUrl || "/favicon-v2.svg"
   const pagePreview = page?.faviconUrl || sitePreview
 
   function IconPreview({ label, src }) {
@@ -55,11 +55,11 @@ export function SettingsMenu({
         <div className="settings-menu">
           <div className="domain-settings-heading">
             <span className="domain-settings-favicon">
-              {domainSettings.faviconUrl ? <img src={domainSettings.faviconUrl} alt="" /> : <span aria-hidden="true">?</span>}
+              {sitePreview ? <img src={sitePreview} alt="" /> : <span aria-hidden="true">?</span>}
             </span>
             <span>
               <strong>Settings</strong>
-              <small>{activeDomain}</small>
+              <small>{domainSettings.faviconUrl ? activeDomain : `${activeDomain} inherits built.at`}</small>
             </span>
           </div>
           {canManageSite ? (

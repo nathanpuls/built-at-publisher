@@ -58,7 +58,7 @@ export function createIconHandlers({ calculatedPageTitle, getDomainSettings, jso
       domain,
       page,
       pageId: page?.id || "",
-      source: page?.favicon_url || settings.faviconUrl || "/favicon-v2.svg",
+      source: page?.favicon_url || settings.effectiveFaviconUrl || settings.faviconUrl || "/favicon-v2.svg",
       title: page ? calculatedPageTitle(page) : domain,
       version: page?.favicon_url
         ? page.updated_at || page.favicon_url
