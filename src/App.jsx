@@ -517,8 +517,8 @@ export default function App() {
             : current)
         }
 
-        if (options.isHome) {
-          setHomeStatus("set")
+        if (options.isHome !== undefined) {
+          setHomeStatus(options.isHome ? "set" : "unset")
           window.setTimeout(() => setHomeStatus(""), 1200)
         }
 
@@ -918,8 +918,7 @@ export default function App() {
         sourceTextareaRef.current?.focus()
       } else if (key === "o") {
         event.preventDefault()
-        const openedPage = window.open(publicUrl(selectedPage), "_blank", "noopener,noreferrer")
-        if (openedPage) openedPage.opener = null
+        window.location.assign(publicUrl(selectedPage))
       } else if (key === "u") {
         event.preventDefault()
         copyPublicUrl()
@@ -932,9 +931,9 @@ export default function App() {
       } else if (key === "d") {
         event.preventDefault()
         duplicateSource()
-      } else if (key === "h" && !selectedPage.isHome) {
+      } else if (key === "h") {
         event.preventDefault()
-        saveDraft(draft, { isHome: true })
+        saveDraft(draft, { isHome: !selectedPage.isHome })
       }
     }
 
@@ -1294,7 +1293,7 @@ export default function App() {
                     </div>
                   ) : null}
                 </div>
-                <a className="button open-action" href={publicUrl(selectedPage)} target="_blank" rel="noreferrer" aria-keyshortcuts="o">Open</a>
+                <a className="button open-action" href={publicUrl(selectedPage)} aria-keyshortcuts="o">Open</a>
                 <span className={`action-status ${error ? "is-error" : ""}`}>{error || status}</span>
               </div>
             </>
@@ -1354,13 +1353,13 @@ export default function App() {
                           <CopySimple size={17} weight="bold" aria-hidden="true" />
                         </button>
                         <button
-                          className={`source-tool-action home-tool-action ${selectedPage.isHome || homeStatus ? "is-home" : ""}`}
+                          className={`source-tool-action home-tool-action ${selectedPage.isHome || homeStatus === "set" ? "is-home" : ""}`}
                           type="button"
                           onClick={() => {
-                            if (!selectedPage.isHome) saveDraft(draft, { isHome: true })
+                            saveDraft(draft, { isHome: !selectedPage.isHome })
                           }}
-                          data-tooltip={selectedPage.isHome ? "Home path" : "Set as home (H)"}
-                          aria-label={selectedPage.isHome ? "Home path" : "Set as home"}
+                          data-tooltip={selectedPage.isHome ? "Unset home (H)" : "Set as home (H)"}
+                          aria-label={selectedPage.isHome ? "Unset home" : "Set as home"}
                           aria-keyshortcuts="h"
                           aria-pressed={selectedPage.isHome}
                         >

@@ -1632,6 +1632,10 @@ input[aria-invalid="true"] {
     gap: 8px;
   }
 
+  .editor-view-switcher {
+    display: none;
+  }
+
   .settings-menu {
     right: auto;
     left: 0;
@@ -1670,10 +1674,17 @@ input[aria-invalid="true"] {
     grid-template-rows: auto;
   }
 
-  .source-area,
-  .preview {
+  .form-grid.is-preview-view .source-area,
+  .source-area {
+    display: grid;
     grid-column: 1;
     grid-row: auto;
+  }
+
+  .preview,
+  .form-grid.is-source-view .preview,
+  .form-grid.is-preview-view .preview {
+    display: none;
   }
 
   .source-field textarea {
