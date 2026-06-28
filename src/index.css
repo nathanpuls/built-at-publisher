@@ -1736,21 +1736,31 @@ input[aria-invalid="true"] {
   .form-grid {
     height: 100%;
     min-height: 0;
-    grid-template-columns: 1fr;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) !important;
     grid-template-rows: minmax(0, 1fr);
+  }
+
+  .form-grid.is-preview-view,
+  .form-grid.is-source-view {
+    grid-template-columns: minmax(0, 1fr) !important;
   }
 
   .form-grid.is-preview-view .source-area,
   .source-area {
-    display: grid;
-    grid-column: 1;
-    grid-row: auto;
+    width: 100%;
+    min-width: 0;
+    display: grid !important;
+    grid-column: 1 / -1 !important;
+    grid-row: 1 !important;
+    grid-template-rows: auto minmax(0, 1fr);
   }
 
   .preview,
+  .form-grid .preview,
   .form-grid.is-source-view .preview,
   .form-grid.is-preview-view .preview {
-    display: none;
+    display: none !important;
   }
 
   .source-field textarea {
@@ -1772,26 +1782,39 @@ input[aria-invalid="true"] {
 
   .source-label {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    min-height: 28px;
+    grid-template-columns: minmax(0, 1fr);
+    min-height: 0;
+    gap: 6px;
     line-height: 1.2;
   }
 
   .source-heading {
+    display: grid;
+    grid-template-columns: 1fr;
     min-width: 0;
   }
 
+  .source-heading > span {
+    display: none;
+  }
+
   .source-heading select {
-    max-width: 128px;
+    width: 100%;
+    max-width: none;
+    height: 34px;
   }
 
   .source-field-actions {
-    flex: 0 0 auto;
-    gap: 2px;
+    width: 100%;
+    min-width: 0;
+    display: flex;
+    justify-content: flex-end;
+    gap: 4px;
   }
 
   .source-tool-action {
-    width: 28px;
+    width: 32px;
+    min-height: 32px;
   }
 
   .undo-bar {
