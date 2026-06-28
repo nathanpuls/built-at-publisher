@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react"
-import { CaretDown, Check, Clipboard, Copy, CopySimple, HouseSimple } from "@phosphor-icons/react"
+import { CaretDown, Check, Clipboard, Copy, CopySimple, HouseSimple, List } from "@phosphor-icons/react"
 import { SettingsMenu } from "./components/SettingsMenu"
 import { Sidebar } from "./components/Sidebar"
 import { detectSource, previewDocument, redirectUrl, renderSource, titleFromSource } from "./lib/content"
@@ -114,6 +114,7 @@ export default function App() {
   const [deletedPage, setDeletedPage] = useState(null)
   const [isTrashOpen, setIsTrashOpen] = useState(false)
   const [isTrashLoading, setIsTrashLoading] = useState(false)
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false)
   const [trashPages, setTrashPages] = useState([])
   const saveTimer = useRef(null)
   const pendingSave = useRef(null)
@@ -333,6 +334,7 @@ export default function App() {
           setIsTrashOpen(false)
           if (document.activeElement instanceof HTMLElement) document.activeElement.blur()
         }
+        setIsMobileSidebarOpen(false)
         setIsDomainMenuOpen(false)
         setIsSettingsMenuOpen(false)
         setIsCopyMenuOpen(false)
@@ -611,6 +613,7 @@ export default function App() {
       setDeletedPage(null)
       focusPathAfterSelect.current = true
       setSelectedId(page.id)
+      setIsMobileSidebarOpen(false)
       setStatus("")
     } catch (createError) {
       setError(createError.message)
@@ -762,6 +765,7 @@ export default function App() {
     setSourceCopyStatus("")
     setSourcePasteStatus("")
     setSelectedId(page.id)
+    setIsMobileSidebarOpen(false)
     window.history.pushState({}, "", adminUrlForPage(page))
   }
 
@@ -778,6 +782,7 @@ export default function App() {
     setSourcePasteStatus("")
     setHomeStatus("")
     setPathError("")
+    setIsMobileSidebarOpen(false)
     keepAdminHomeUrl.current = true
     setSelectedId(pages[0]?.id || null)
     window.history.pushState({}, "", adminHomeUrl(activeDomain, isPersonalWorkspace ? "personal" : "platform"))
@@ -873,6 +878,7 @@ export default function App() {
       setDeletedPage(null)
       focusPathAfterSelect.current = true
       setSelectedId(page.id)
+      setIsMobileSidebarOpen(false)
       setStatus("")
     } catch (duplicateError) {
       setError(duplicateError.message || "Could not duplicate route.")
@@ -1006,6 +1012,7 @@ export default function App() {
     setActiveDomain(domain)
     setPages([])
     setSelectedId(null)
+    setIsMobileSidebarOpen(false)
     setDomainSettings({ faviconUrl: "", loadedDomain: null })
     setFaviconUrlDraft("")
     setDeletedPage(null)
@@ -1033,6 +1040,7 @@ export default function App() {
     setActiveDomain(DEFAULT_DOMAIN)
     setPages([])
     setSelectedId(null)
+    setIsMobileSidebarOpen(false)
     setDeletedPage(null)
     setQuery("")
     setIsDomainMenuOpen(false)
@@ -1153,7 +1161,13 @@ export default function App() {
   }
 
   return (
-    <div className="admin-shell">
+    <div className={`admin-shell ${isMobileSidebarOpen ? "is-sidebar-open" : ""}`}>
+      <button
+        className="sidebar-scrim"
+        type="button"
+        onClick={() => setIsMobileSidebarOpen(false)}
+        aria-label="Close pages"
+      />
       <Sidebar
         account={account}
         activeDomain={activeDomain}
@@ -1178,7 +1192,10 @@ export default function App() {
         onSignOut={signOut}
         onToggleDomainMenu={() => setIsDomainMenuOpen((current) => !current)}
         onToggleFolder={toggleFolder}
-        onToggleTrash={() => setIsTrashOpen((current) => !current)}
+        onToggleTrash={() => {
+          setIsTrashOpen((current) => !current)
+          setIsMobileSidebarOpen(true)
+        }}
         onUploadFavicon={uploadFavicon}
         query={query}
         searchInputRef={searchInputRef}
@@ -1193,6 +1210,16 @@ export default function App() {
         <header className="workspace-header">
           {selectedPage ? (
             <>
+              <button
+                className="mobile-sidebar-toggle"
+                type="button"
+                onClick={() => setIsMobileSidebarOpen(true)}
+                aria-label="Show pages"
+                aria-expanded={isMobileSidebarOpen}
+              >
+                <List size={21} weight="bold" aria-hidden="true" />
+                <span>{displayPath(selectedPage.path) || "Untitled"}</span>
+              </button>
               <div className="header-path-field">
                 <span className="header-path-input">
                   <span className="header-path-label">Path</span>

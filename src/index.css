@@ -81,6 +81,11 @@ button:focus-visible,
   overflow: hidden;
 }
 
+.sidebar-scrim,
+.mobile-sidebar-toggle {
+  display: none;
+}
+
 .sidebar {
   min-width: 0;
   min-height: 0;
@@ -1573,22 +1578,56 @@ input[aria-invalid="true"] {
   html,
   body,
   #root {
-    height: auto;
+    height: 100%;
     min-height: 100%;
   }
 
   .admin-shell {
     display: block;
-    height: auto;
-    min-height: 100vh;
-    overflow: visible;
+    height: 100dvh;
+    min-height: 100dvh;
+    overflow: hidden;
+  }
+
+  .sidebar-scrim {
+    position: fixed;
+    inset: 0;
+    z-index: 35;
+    display: block;
+    width: 100%;
+    min-height: 100%;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: rgba(17, 24, 39, 0.28);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 160ms ease;
+  }
+
+  .admin-shell.is-sidebar-open .sidebar-scrim {
+    opacity: 1;
+    pointer-events: auto;
   }
 
   .sidebar {
-    height: auto;
-    max-height: 42vh;
-    border-right: 0;
-    border-bottom: 1px solid var(--line);
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 40;
+    width: min(86vw, 340px);
+    height: 100dvh;
+    max-height: none;
+    border-right: 1px solid var(--line);
+    border-bottom: 0;
+    box-shadow: 18px 0 36px rgba(17, 24, 39, 0.16);
+    transform: translateX(-105%);
+    transition: transform 180ms ease;
+  }
+
+  .admin-shell.is-sidebar-open .sidebar {
+    transform: translateX(0);
   }
 
   .sidebar-header {
@@ -1604,36 +1643,57 @@ input[aria-invalid="true"] {
   }
 
   .items {
-    max-height: calc(42vh - 139px);
+    max-height: none;
   }
 
   .workspace {
-    height: auto;
+    height: 100dvh;
     min-height: 0;
-    overflow: visible;
+    overflow: hidden;
   }
 
   .workspace-header {
-    height: auto;
-    min-height: 0;
-    padding: 10px 14px;
-    grid-template-columns: 1fr;
-    gap: 10px;
-  }
-
-  .header-path-field {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .path-actions {
-    width: 100%;
-    flex-wrap: wrap;
-    justify-content: flex-end;
+    height: 64px;
+    min-height: 64px;
+    padding: 8px 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
     gap: 8px;
   }
 
-  .editor-view-switcher {
+  .mobile-sidebar-toggle {
+    min-width: 0;
+    flex: 1 1 auto;
+    display: inline-flex;
+    justify-content: flex-start;
+    gap: 8px;
+    padding: 0 10px;
+    border: 0;
+    background: transparent;
+    font-weight: 700;
+  }
+
+  .mobile-sidebar-toggle span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .header-path-field,
+  .editor-view-switcher,
+  .settings-control,
+  .copy-url-control {
     display: none;
+  }
+
+  .path-actions {
+    width: auto;
+    flex: 0 0 auto;
+    flex-wrap: nowrap;
+    justify-content: flex-end;
+    gap: 8px;
   }
 
   .settings-menu {
@@ -1648,8 +1708,11 @@ input[aria-invalid="true"] {
     padding: 0 12px;
   }
 
-  .copy-url-control .copy-action {
+  .path-actions .open-action {
+    display: inline-flex;
     flex: 0 0 auto;
+    min-width: 72px;
+    min-height: 40px;
   }
 
   .action-status {
@@ -1664,14 +1727,17 @@ input[aria-invalid="true"] {
   }
 
   .editor {
-    padding: 16px 14px 24px;
-    overflow: visible;
+    flex: 1 1 auto;
+    min-height: 0;
+    padding: 12px;
+    overflow: hidden;
   }
 
   .form-grid {
-    height: auto;
+    height: 100%;
+    min-height: 0;
     grid-template-columns: 1fr;
-    grid-template-rows: auto;
+    grid-template-rows: minmax(0, 1fr);
   }
 
   .form-grid.is-preview-view .source-area,
@@ -1688,9 +1754,9 @@ input[aria-invalid="true"] {
   }
 
   .source-field textarea {
-    min-height: 340px;
-    padding: 22px;
-    resize: vertical;
+    min-height: 0;
+    padding: 16px;
+    resize: none;
   }
 
   input,
@@ -1700,13 +1766,32 @@ input[aria-invalid="true"] {
   }
 
   textarea {
-    padding: 22px;
+    padding: 16px;
     line-height: 1.65;
   }
 
-  .field-label {
-    min-height: 20px;
+  .source-label {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    min-height: 28px;
     line-height: 1.2;
+  }
+
+  .source-heading {
+    min-width: 0;
+  }
+
+  .source-heading select {
+    max-width: 128px;
+  }
+
+  .source-field-actions {
+    flex: 0 0 auto;
+    gap: 2px;
+  }
+
+  .source-tool-action {
+    width: 28px;
   }
 
   .undo-bar {
