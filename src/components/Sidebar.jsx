@@ -83,6 +83,7 @@ export function Sidebar({
   account,
   activeDomain,
   collapsedFolders,
+  draft,
   domainMenuRef,
   faviconInputRef,
   filteredPages,
@@ -95,6 +96,8 @@ export function Sidebar({
   onDeleteFolder,
   onDeletePermanently,
   onDeletePage,
+  onDraftPathChange,
+  onDraftTitleChange,
   onResetAdminHome,
   onRestorePage,
   onSelectPage,
@@ -105,8 +108,10 @@ export function Sidebar({
   onToggleFolder,
   onToggleTrash,
   onUploadFavicon,
+  pathError,
   query,
   searchInputRef,
+  selectedPage,
   selectedId,
   setQuery,
   sidebarEntries,
@@ -207,6 +212,30 @@ export function Sidebar({
           ) : null}
         </div>
       </div>
+
+      {!isTrashOpen && selectedPage ? (
+        <div className="mobile-page-fields" aria-label="Selected page details">
+          <label>
+            <span>Path</span>
+            <input
+              value={draft.path}
+              aria-label="Path"
+              readOnly={selectedPage.namespace === "system"}
+              aria-invalid={Boolean(pathError)}
+              onChange={(event) => onDraftPathChange(event.target.value)}
+            />
+            {pathError ? <small className="field-error">{pathError}</small> : null}
+          </label>
+          <label>
+            <span>Title</span>
+            <input
+              value={draft.title}
+              aria-label="Page title"
+              onChange={(event) => onDraftTitleChange(event.target.value)}
+            />
+          </label>
+        </div>
+      ) : null}
 
       <div className="items">
         {isTrashOpen ? (
