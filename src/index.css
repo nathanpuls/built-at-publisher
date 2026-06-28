@@ -1633,17 +1633,34 @@ input[aria-invalid="true"] {
   .sidebar-header {
     height: auto;
     min-height: 74px;
-    padding: 12px 16px;
+    padding: 12px 18px;
+    border-bottom: 0;
   }
 
   .search-row {
     height: auto;
     min-height: 0;
-    padding: 12px 14px;
+    padding: 10px 18px 12px;
+    border-top: 0;
+    border-bottom: 0;
+    background: var(--panel);
+  }
+
+  .search-control input {
+    height: 44px;
+    border-color: #d9dde3;
+    border-radius: 12px;
+    box-shadow: 0 1px 0 rgba(17, 24, 39, 0.04);
+  }
+
+  .clear-search {
+    top: 8px;
+    right: 8px;
   }
 
   .items {
     max-height: none;
+    padding: 2px 14px 8px;
   }
 
   .workspace {
