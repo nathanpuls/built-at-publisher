@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react"
-import { CaretDown, Check, Clipboard, Copy, CopySimple, HouseSimple, List } from "@phosphor-icons/react"
-import { SettingsMenu } from "./components/SettingsMenu"
+import { EditorHeader } from "./components/EditorHeader"
+import { EditorWorkspace } from "./components/EditorWorkspace"
 import { Sidebar } from "./components/Sidebar"
-import { detectSource, previewDocument, redirectUrl, renderSource, titleFromSource } from "./lib/content"
+import { detectSource, titleFromSource } from "./lib/content"
 import {
   DEFAULT_DOMAIN,
   EDITABLE_DOMAINS,
@@ -1208,229 +1208,80 @@ export default function App() {
 
       <main className="workspace">
         <header className="workspace-header">
-          {selectedPage ? (
-            <>
-              <button
-                className="mobile-sidebar-toggle"
-                type="button"
-                onClick={() => setIsMobileSidebarOpen(true)}
-                aria-label="Show pages"
-                aria-expanded={isMobileSidebarOpen}
-              >
-                <List size={21} weight="bold" aria-hidden="true" />
-                <span>{displayPath(selectedPage.path) || "Untitled"}</span>
-              </button>
-              <div className="header-path-field">
-                <span className="header-path-input">
-                  <span className="header-path-label">Path</span>
-                  <input
-                    ref={pathInputRef}
-                    value={draft.path}
-                    aria-label="Path"
-                    readOnly={selectedPage.namespace === "system"}
-                    aria-invalid={Boolean(pathError)}
-                    aria-describedby={pathError ? "path-error" : undefined}
-                    aria-keyshortcuts="p"
-                    onChange={(event) => scheduleSave(withSuggestedTitle(
-                      { ...draft, path: event.target.value },
-                      draft,
-                      { pathChanged: true }
-                    ))}
-                  />
-                  {pathError ? <span className="field-error" id="path-error">{pathError}</span> : null}
-                </span>
-                <span className="header-title-input">
-                  <span className="header-path-label">Title</span>
-                  <input
-                    value={draft.title}
-                    aria-label="Page title"
-                    onChange={(event) => scheduleSave({
-                      ...draft,
-                      title: event.target.value,
-                      titleMode: event.target.value.trim() ? "manual" : "auto",
-                    })}
-                  />
-                </span>
-              </div>
-              <div className="path-actions">
-                <div className="editor-view-switcher" role="group" aria-label="Editor view">
-                  <button className={editorView === "source" ? "is-active" : ""} type="button" onClick={() => setEditorView("source")} aria-pressed={editorView === "source"}>Source</button>
-                  <button className={editorView === "split" ? "is-active" : ""} type="button" onClick={() => setEditorView("split")} aria-pressed={editorView === "split"}>Split</button>
-                  <button className={editorView === "preview" ? "is-active" : ""} type="button" onClick={() => setEditorView("preview")} aria-pressed={editorView === "preview"}>Preview</button>
-                </div>
-                <SettingsMenu
-                  activeDomain={activeDomain}
-                  canManageSite={!isUserWorkspace}
-                  domainSettings={domainSettings}
-                  faviconStatus={faviconStatus}
-                  faviconUrlDraft={faviconUrlDraft}
-                  isOpen={isSettingsMenuOpen}
-                  menuRef={settingsMenuRef}
-                  onChooseFavicon={() => {
-                    setIsSettingsMenuOpen(false)
-                    faviconInputRef.current?.click()
-                  }}
-                  onChoosePageFavicon={() => pageFaviconInputRef.current?.click()}
-                  onCloseDomainMenu={() => setIsDomainMenuOpen(false)}
-                  onResetPageFavicon={() => savePageFaviconUrl("")}
-                  onSaveFaviconUrl={saveFaviconUrl}
-                  onSavePageFaviconUrl={savePageFaviconUrl}
-                  onSetFaviconUrlDraft={setFaviconUrlDraft}
-                  onSetPageFaviconUrlDraft={setPageFaviconUrlDraft}
-                  onToggle={() => {
-                    setIsCopyMenuOpen(false)
-                    setIsSettingsMenuOpen((current) => !current)
-                  }}
-                  onUploadPageFavicon={uploadPageFavicon}
-                  page={selectedPage}
-                  pageFaviconInputRef={pageFaviconInputRef}
-                  pageFaviconUrlDraft={pageFaviconUrlDraft}
-                />
-                <div className="copy-url-control" ref={copyMenuRef}>
-                  <button className={`button copy-action ${copyStatus || permanentCopyStatus ? "is-copied" : ""}`} type="button" onClick={copyPublicUrl} aria-keyshortcuts="u">
-                    {copyStatus || permanentCopyStatus ? "Copied" : "Copy URL"}
-                  </button>
-                  <button
-                    className="copy-menu-trigger"
-                    type="button"
-                    onClick={() => {
-                      setIsDomainMenuOpen(false)
-                      setIsSettingsMenuOpen(false)
-                      setIsCopyMenuOpen((current) => !current)
-                    }}
-                    aria-label="More copy options"
-                    aria-expanded={isCopyMenuOpen}
-                  >
-                    <CaretDown size={16} weight="bold" aria-hidden="true" />
-                  </button>
-                  {isCopyMenuOpen ? (
-                    <div className="copy-url-menu">
-                      <button type="button" onClick={copyPublicUrl}>
-                        <span>Copy public URL</span>
-                        {copyStatus ? (
-                          <Check size={16} weight="bold" aria-hidden="true" />
-                        ) : null}
-                      </button>
-                      <button type="button" onClick={copyPermanentUrl}>
-                        <span>Copy permanent link</span>
-                        {permanentCopyStatus ? (
-                          <Check size={16} weight="bold" aria-hidden="true" />
-                        ) : null}
-                      </button>
-                    </div>
-                  ) : null}
-                </div>
-                <a className="button open-action" href={publicUrl(selectedPage)} aria-keyshortcuts="o">Open</a>
-                <span className={`action-status ${error ? "is-error" : ""}`}>{error || status}</span>
-              </div>
-            </>
-          ) : null}
+          <EditorHeader
+            activeDomain={activeDomain}
+            copyMenuRef={copyMenuRef}
+            copyStatus={copyStatus}
+            domainSettings={domainSettings}
+            draft={draft}
+            editorView={editorView}
+            error={error}
+            faviconInputRef={faviconInputRef}
+            faviconStatus={faviconStatus}
+            faviconUrlDraft={faviconUrlDraft}
+            isCopyMenuOpen={isCopyMenuOpen}
+            isMobileSidebarOpen={isMobileSidebarOpen}
+            isSettingsMenuOpen={isSettingsMenuOpen}
+            isUserWorkspace={isUserWorkspace}
+            onChangePath={(path) => scheduleSave(withSuggestedTitle(
+              { ...draft, path },
+              draft,
+              { pathChanged: true }
+            ))}
+            onChangeTitle={(title) => scheduleSave({
+              ...draft,
+              title,
+              titleMode: title.trim() ? "manual" : "auto",
+            })}
+            onChooseFavicon={() => {
+              setIsSettingsMenuOpen(false)
+              faviconInputRef.current?.click()
+            }}
+            onChoosePageFavicon={() => pageFaviconInputRef.current?.click()}
+            onCloseDomainMenu={() => setIsDomainMenuOpen(false)}
+            onCopyPermanentUrl={copyPermanentUrl}
+            onCopyPublicUrl={copyPublicUrl}
+            onResetPageFavicon={() => savePageFaviconUrl("")}
+            onSaveFaviconUrl={saveFaviconUrl}
+            onSavePageFaviconUrl={savePageFaviconUrl}
+            onSetCopyMenuOpen={setIsCopyMenuOpen}
+            onSetDomainMenuOpen={setIsDomainMenuOpen}
+            onSetEditorView={setEditorView}
+            onSetFaviconUrlDraft={setFaviconUrlDraft}
+            onSetPageFaviconUrlDraft={setPageFaviconUrlDraft}
+            onSetSettingsMenuOpen={setIsSettingsMenuOpen}
+            onShowPages={() => setIsMobileSidebarOpen(true)}
+            onUploadPageFavicon={uploadPageFavicon}
+            pageFaviconInputRef={pageFaviconInputRef}
+            pageFaviconUrlDraft={pageFaviconUrlDraft}
+            pathError={pathError}
+            pathInputRef={pathInputRef}
+            permanentCopyStatus={permanentCopyStatus}
+            selectedPage={selectedPage}
+            settingsMenuRef={settingsMenuRef}
+            status={status}
+          />
         </header>
         {selectedPage ? (
-          <div className="editor">
-            <div className={`form-grid is-${editorView}-view`}>
-              <div className="source-area">
-                <div className="field-label source-label">
-                  <span className="source-heading">
-                    <span>Source</span>
-                    <select value={sourceMode === "auto" ? sourceType : sourceMode} onChange={(event) => changeSourceType(event.target.value)} aria-label="Page mode">
-                      <option value="markdown">Markdown</option>
-                      <option value="html">HTML</option>
-                      <option value="redirect">Redirect</option>
-                      <option value="iframe">Iframe</option>
-                    </select>
-                  </span>
-                  <span className="source-field-actions">
-                        <button
-                          className={`source-tool-action ${sourceCopyStatus ? "is-success" : ""}`}
-                          type="button"
-                          onClick={copySource}
-                          data-tooltip="Copy source (C)"
-                          aria-label={sourceCopyStatus ? "Source copied" : "Copy source"}
-                          aria-keyshortcuts="c"
-                        >
-                          {sourceCopyStatus ? (
-                            <Check size={17} weight="bold" aria-hidden="true" />
-                          ) : (
-                            <Copy size={17} weight="bold" aria-hidden="true" />
-                          )}
-                        </button>
-                        <button
-                          className={`source-tool-action ${sourcePasteStatus ? "is-success" : ""}`}
-                          type="button"
-                          onClick={pasteSource}
-                          data-tooltip={sourcePasteStatus ? "Source pasted" : "Paste source (V)"}
-                          aria-label={sourcePasteStatus ? "Source pasted" : "Paste source"}
-                          aria-keyshortcuts="v"
-                        >
-                          {sourcePasteStatus ? (
-                            <Check size={17} weight="bold" aria-hidden="true" />
-                          ) : (
-                            <Clipboard size={17} weight="bold" aria-hidden="true" />
-                          )}
-                        </button>
-                        <button
-                          className="source-tool-action"
-                          type="button"
-                          onClick={duplicateSource}
-                          data-tooltip="Duplicate into new page (D)"
-                          aria-label="Duplicate source into a new page"
-                          aria-keyshortcuts="d"
-                        >
-                          <CopySimple size={17} weight="bold" aria-hidden="true" />
-                        </button>
-                        <button
-                          className={`source-tool-action home-tool-action ${selectedPage.isHome || homeStatus === "set" ? "is-home" : ""}`}
-                          type="button"
-                          onClick={() => {
-                            saveDraft(draft, { isHome: !selectedPage.isHome })
-                          }}
-                          data-tooltip={selectedPage.isHome ? "Unset home (H)" : "Set as home (H)"}
-                          aria-label={selectedPage.isHome ? "Unset home" : "Set as home"}
-                          aria-keyshortcuts="h"
-                          aria-pressed={selectedPage.isHome}
-                        >
-                          <HouseSimple size={17} weight="bold" aria-hidden="true" />
-                        </button>
-                  </span>
-                </div>
-                <div className="source-field">
-                <textarea
-                  ref={sourceTextareaRef}
-                  value={draft.source}
-                  onChange={(event) => scheduleSave(withSuggestedTitle({ ...draft, source: event.target.value }, draft))}
-                  aria-keyshortcuts="s"
-                  spellCheck="false"
-                />
-                </div>
-              </div>
-
-              <section className={`preview is-${sourceType}`}>
-                  <div className="preview-label">Preview</div>
-                  {sourceType === "iframe" ? (
-                    <iframe
-                      className="html-preview"
-                      title="Iframe preview"
-                      src={redirectUrl(draft.source) || "about:blank"}
-                      allow="autoplay; clipboard-read; clipboard-write; fullscreen"
-                    />
-                  ) : sourceType === "html" ? (
-                    <iframe
-                      key={`html-preview-${selectedPage.id}`}
-                      className="html-preview"
-                      title="HTML preview"
-                      sandbox="allow-forms allow-modals allow-popups allow-popups-to-escape-sandbox allow-same-origin allow-scripts"
-                      srcDoc={previewDocument(draft.source, publicUrl(selectedPage))}
-                    />
-                  ) : (
-                    <article
-                      className={`rendered is-${sourceType}`}
-                      dangerouslySetInnerHTML={{ __html: renderSource(draft.source, sourceType) }}
-                    />
-                  )}
-              </section>
-            </div>
-          </div>
+          <EditorWorkspace
+            draft={draft}
+            editorView={editorView}
+            homeStatus={homeStatus}
+            onChangeSource={(source) => scheduleSave(withSuggestedTitle({ ...draft, source }, draft))}
+            onChangeSourceType={changeSourceType}
+            onCopySource={copySource}
+            onDuplicateSource={duplicateSource}
+            onPasteSource={pasteSource}
+            onToggleHome={() => {
+              saveDraft(draft, { isHome: !selectedPage.isHome })
+            }}
+            selectedPage={selectedPage}
+            sourceCopyStatus={sourceCopyStatus}
+            sourceMode={sourceMode}
+            sourcePasteStatus={sourcePasteStatus}
+            sourceTextareaRef={sourceTextareaRef}
+            sourceType={sourceType}
+          />
         ) : (
           <div className="blank-workspace">
             No route selected
