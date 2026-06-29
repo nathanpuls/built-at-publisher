@@ -1641,7 +1641,7 @@ input[aria-invalid="true"] {
   .search-row {
     height: auto;
     min-height: 0;
-    padding: 8px var(--drawer-inset) 8px;
+    padding: 8px var(--drawer-inset) 12px;
     border-top: 0;
     border-bottom: 0;
     background: transparent;
@@ -1661,7 +1661,7 @@ input[aria-invalid="true"] {
 
   .items {
     max-height: none;
-    padding: 0 var(--drawer-inset) 8px;
+    padding: 12px var(--drawer-inset) 8px;
   }
 
   .item {
@@ -1750,6 +1750,7 @@ input[aria-invalid="true"] {
 
   .path-actions {
     grid-column: 2;
+    grid-row: 1;
     width: auto;
     flex: 0 0 auto;
     flex-wrap: nowrap;
