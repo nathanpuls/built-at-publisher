@@ -539,6 +539,22 @@ function redirectResponse(url) {
   })
 }
 
+function httpsUpgradeResponse(request, url) {
+  const forwardedProto = request.headers.get("x-forwarded-proto")
+  if (url.protocol !== "http:" && forwardedProto !== "http") return null
+
+  const secureUrl = new URL(url.href)
+  secureUrl.protocol = "https:"
+
+  return new Response(null, {
+    status: 301,
+    headers: {
+      location: secureUrl.href,
+      "cache-control": "no-store",
+    },
+  })
+}
+
 function mappedSubdomainRedirect(hostname, pathname = "/", search = "") {
   const normalizedHostname = hostname.toLowerCase()
 
@@ -1554,6 +1570,11 @@ async function listPages(env, domain = DEFAULT_DOMAIN, user = null, personalWork
 export default {
   async fetch(request, env) {
     const url = new URL(request.url)
+    const httpsUpgrade = httpsUpgradeResponse(request, url)
+
+    if (httpsUpgrade) {
+      return httpsUpgrade
+    }
 
     if (url.hostname === "admin.built.at") {
       return redirectResponse(`https://built.at/admin${url.search}`)
