@@ -207,12 +207,23 @@ function isRegularUser(user) {
   return Boolean(user && user.role !== "owner")
 }
 
+function isOwnerUser(user) {
+  return Boolean(user && user.role === "owner")
+}
+
 function canAccessPage(user, page) {
-  return !isRegularUser(user) || (
+  if (!user) return false
+  if (isOwnerUser(user)) return true
+
+  return (
     page.owner_id === user.id &&
     page.namespace === "user" &&
     normalizeDomain(page.domain) === DEFAULT_DOMAIN
   )
+}
+
+function unauthorizedJson() {
+  return json({ error: "Sign in to continue." }, { status: 401 })
 }
 
 const {
@@ -882,6 +893,10 @@ async function savePageData(body, env, publish = false) {
 
 async function savePage(request, env, publish = false, user = null) {
   try {
+    if (!user) {
+      return unauthorizedJson()
+    }
+
     const body = await request.json()
     const personalWorkspace = Boolean(user && body.namespace === "user")
 
@@ -1191,6 +1206,10 @@ async function deletePage(env, id, user = null) {
 async function listTrash(env, domain = DEFAULT_DOMAIN, user = null, personalWorkspace = false) {
   if (!env.DB) {
     return json({ error: "DB binding is not configured." }, { status: 500 })
+  }
+
+  if (!user) {
+    return unauthorizedJson()
   }
 
   await purgeExpiredTrash(env)
@@ -1527,6 +1546,10 @@ async function listPages(env, domain = DEFAULT_DOMAIN, user = null, personalWork
     return json({ error: "DB binding is not configured." }, { status: 500 })
   }
 
+  if (!user) {
+    return unauthorizedJson()
+  }
+
   const fields = `SELECT pages.id, pages.slug, pages.title, pages.title_mode, pages.status, pages.markdown,
       pages.source, pages.source_type, pages.path, pages.domain, pages.is_home, pages.favicon_url,
       pages.owner_id, pages.namespace, users.username,
@@ -1639,6 +1662,10 @@ export default {
 
     if (url.pathname.startsWith("/admin") && (request.method === "GET" || request.method === "HEAD")) {
       const user = await currentUser(request, env)
+      if (!user) {
+        return redirectResponse(new URL("/signup", EDITOR_ORIGIN).href)
+      }
+
       if (isRegularUser(user) && !user.username) {
         return redirectResponse(new URL("/signup?choose=username", EDITOR_ORIGIN).href)
       }
@@ -1651,6 +1678,7 @@ export default {
 
     if (url.pathname === "/api/domain-settings" && request.method === "PATCH") {
       const user = await currentUser(request, env)
+      if (!user) return unauthorizedJson()
       if (isRegularUser(user)) return json({ error: "Site settings are not available for this account." }, { status: 403 })
       return updateDomainSettings(request, env)
     }
@@ -1700,25 +1728,35 @@ export default {
     const trashRestoreMatch = url.pathname.match(/^\/api\/trash\/([A-Za-z0-9_-]+)\/restore$/)
 
     if (trashRestoreMatch && request.method === "POST") {
-      return restorePage(env, trashRestoreMatch[1], await currentUser(request, env))
+      const user = await currentUser(request, env)
+      if (!user) return unauthorizedJson()
+      return restorePage(env, trashRestoreMatch[1], user)
     }
 
     if (trashMatch && request.method === "DELETE") {
-      return permanentlyDeletePage(env, trashMatch[1], await currentUser(request, env))
+      const user = await currentUser(request, env)
+      if (!user) return unauthorizedJson()
+      return permanentlyDeletePage(env, trashMatch[1], user)
     }
 
     const pageMatch = url.pathname.match(/^\/api\/pages\/([A-Za-z0-9_-]+)$/)
 
     if (pageMatch && request.method === "GET") {
-      return getPage(pageMatch[1], env, await currentUser(request, env))
+      const user = await currentUser(request, env)
+      if (!user) return unauthorizedJson()
+      return getPage(pageMatch[1], env, user)
     }
 
     if (pageMatch && request.method === "PATCH") {
-      return updatePage(request, env, pageMatch[1], await currentUser(request, env))
+      const user = await currentUser(request, env)
+      if (!user) return unauthorizedJson()
+      return updatePage(request, env, pageMatch[1], user)
     }
 
     if (pageMatch && request.method === "DELETE") {
-      return deletePage(env, pageMatch[1], await currentUser(request, env))
+      const user = await currentUser(request, env)
+      if (!user) return unauthorizedJson()
+      return deletePage(env, pageMatch[1], user)
     }
 
     if (url.pathname === "/api/publish" && request.method === "POST") {
@@ -1734,6 +1772,8 @@ export default {
     }
 
     if (url.pathname === "/api/internal/render-path" && (request.method === "GET" || request.method === "HEAD")) {
+      const user = await currentUser(request, env)
+      if (!user) return unauthorizedJson()
       return renderDomainPathRequest(request, env)
     }
 
@@ -1768,10 +1808,14 @@ export default {
     }
 
     if (url.pathname === "/api/media" && request.method === "POST") {
+      const user = await currentUser(request, env)
+      if (!user) return unauthorizedJson()
       return uploadMedia(request, env)
     }
 
     if (url.pathname === "/api/media" && request.method === "GET") {
+      const user = await currentUser(request, env)
+      if (!user) return unauthorizedJson()
       return listMedia(env)
     }
 
