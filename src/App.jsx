@@ -1172,7 +1172,6 @@ export default function App() {
         account={account}
         activeDomain={activeDomain}
         collapsedFolders={collapsedFolders}
-        draft={draft}
         domainMenuRef={domainMenuRef}
         faviconInputRef={faviconInputRef}
         filteredPages={filteredPages}
@@ -1185,16 +1184,6 @@ export default function App() {
         onDeletePermanently={permanentlyDeleteFromTrash}
         onDeleteFolder={deleteFolder}
         onDeletePage={deleteRoute}
-        onDraftPathChange={(path) => scheduleSave(withSuggestedTitle(
-          { ...draft, path },
-          draft,
-          { pathChanged: true }
-        ))}
-        onDraftTitleChange={(title) => scheduleSave({
-          ...draft,
-          title,
-          titleMode: title.trim() ? "manual" : "auto",
-        })}
         onResetAdminHome={resetAdminHome}
         onRestorePage={restoreFromTrash}
         onSelectPage={selectPage}
@@ -1208,10 +1197,8 @@ export default function App() {
           setIsMobileSidebarOpen(true)
         }}
         onUploadFavicon={uploadFavicon}
-        pathError={pathError}
         query={query}
         searchInputRef={searchInputRef}
-        selectedPage={selectedPage}
         selectedId={selectedId}
         workspaceMode={workspaceMode}
         setQuery={setQuery}

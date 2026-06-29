@@ -481,10 +481,6 @@ h1 {
   padding-right: 38px;
 }
 
-.mobile-page-fields {
-  display: none;
-}
-
 .clear-search {
   position: absolute;
   top: 5px;
@@ -1678,39 +1674,6 @@ input[aria-invalid="true"] {
     background: #f3f4f6;
   }
 
-  .mobile-page-fields {
-    padding: 12px var(--drawer-inset) 12px;
-    display: grid;
-    gap: 8px;
-  }
-
-  .mobile-page-fields label {
-    display: grid;
-    gap: 4px;
-    color: var(--muted);
-    font-size: 12px;
-    font-weight: 700;
-    line-height: 1.2;
-  }
-
-  .mobile-page-fields input {
-    height: 40px;
-    border-color: #d9dde3;
-    border-radius: 10px;
-    color: var(--text);
-    font-size: 16px;
-    font-weight: 400;
-  }
-
-  .mobile-page-fields .field-error {
-    width: 100%;
-    margin: 0;
-    color: var(--danger);
-    font-size: 12px;
-    font-weight: 700;
-    line-height: 1.25;
-  }
-
   .workspace {
     height: 100dvh;
     min-height: 0;
@@ -1718,16 +1681,17 @@ input[aria-invalid="true"] {
   }
 
   .workspace-header {
-    height: 64px;
-    min-height: 64px;
-    padding: 8px 12px;
-    display: flex;
+    height: auto;
+    min-height: 0;
+    padding: 10px 12px 12px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
     align-items: center;
-    justify-content: space-between;
-    gap: 8px;
+    gap: 10px 8px;
   }
 
   .mobile-sidebar-toggle {
+    grid-column: 1;
     min-width: 0;
     flex: 1 1 auto;
     display: inline-flex;
@@ -1746,14 +1710,46 @@ input[aria-invalid="true"] {
     white-space: nowrap;
   }
 
-  .header-path-field,
   .editor-view-switcher,
   .settings-control,
   .copy-url-control {
     display: none;
   }
 
+  .header-path-field {
+    grid-column: 1 / -1;
+    width: 100%;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+  }
+
+  .header-path-input,
+  .header-title-input {
+    gap: 4px;
+  }
+
+  .header-path-label {
+    font-size: 13px;
+    line-height: 1.2;
+  }
+
+  .header-path-field input {
+    height: 40px;
+    border-color: #d9dde3;
+    border-radius: 10px;
+    font-size: 16px;
+  }
+
+  .header-path-input .field-error {
+    min-height: 0;
+    padding: 0 2px;
+    font-size: 12px;
+    line-height: 1.25;
+  }
+
   .path-actions {
+    grid-column: 2;
     width: auto;
     flex: 0 0 auto;
     flex-wrap: nowrap;
