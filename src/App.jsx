@@ -121,6 +121,7 @@ export default function App() {
   const unsavedChangesRef = useRef(false)
   const changeVersionRef = useRef(0)
   const selectedIdRef = useRef(null)
+  const selectedPageRef = useRef(null)
   const keepAdminHomeUrl = useRef(false)
   const focusPathAfterSelect = useRef(false)
   const searchInputRef = useRef(null)
@@ -166,7 +167,8 @@ export default function App() {
 
   useEffect(() => {
     selectedIdRef.current = selectedId
-  }, [selectedId])
+    selectedPageRef.current = selectedPage
+  }, [selectedId, selectedPage])
 
   useEffect(() => {
     let cancelled = false
@@ -286,24 +288,25 @@ export default function App() {
   }, [activeDomain, domainSettings.effectiveFaviconUrl, domainSettings.faviconHref, domainSettings.faviconUrl, domainSettings.loadedDomain, domainSettings.updatedAt])
 
   useEffect(() => {
-    if (!selectedPage) return
+    const page = selectedPageRef.current
+    if (!page) return
 
     // The draft mirrors the selected route so switching routes replaces unsaved UI state.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setDraft({
-      path: displayPath(selectedPage.path || ""),
-      source: selectedPage.source || "",
-      sourceType: selectedPage.sourceType || "auto",
-      title: selectedPage.title || "",
-      titleMode: selectedPage.titleMode || "manual",
+      path: displayPath(page.path || ""),
+      source: page.source || "",
+      sourceType: page.sourceType || "auto",
+      title: page.title || "",
+      titleMode: page.titleMode || "manual",
     })
-    setPageFaviconUrlDraft(selectedPage.faviconUrl || "")
+    setPageFaviconUrlDraft(page.faviconUrl || "")
 
     if (keepAdminHomeUrl.current) {
       keepAdminHomeUrl.current = false
       window.history.replaceState({}, "", adminHomeUrl(activeDomain, isPersonalWorkspace ? "personal" : "platform"))
     } else {
-      window.history.replaceState({}, "", adminUrlForPage(selectedPage))
+      window.history.replaceState({}, "", adminUrlForPage(page))
     }
 
     if (focusPathAfterSelect.current) {
@@ -313,7 +316,7 @@ export default function App() {
         pathInputRef.current?.select()
       })
     }
-  }, [selectedPage?.id, activeDomain, isPersonalWorkspace])
+  }, [selectedId, activeDomain, isPersonalWorkspace])
 
   useEffect(() => {
     writeCollapsedFolders(collapsedFolders)
