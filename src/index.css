@@ -237,6 +237,21 @@ button:focus-visible,
   font-weight: 750;
 }
 
+.domain-menu .project-menu-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 28px;
+  align-items: center;
+  border-radius: 7px;
+}
+
+.domain-menu .project-menu-row.is-active {
+  background: #f3f4f6;
+}
+
+.domain-menu .project-menu-row .project-menu-item {
+  background: transparent;
+}
+
 .domain-menu .project-menu-item {
   padding-left: 22px;
   color: #4b5563;
@@ -246,6 +261,20 @@ button:focus-visible,
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.project-rename-button {
+  height: 28px;
+  min-height: 28px;
+  justify-content: center;
+  padding: 0;
+  color: var(--muted);
+  background: transparent;
+}
+
+.project-rename-button:hover {
+  color: var(--text);
+  background: transparent;
 }
 
 .domain-settings-heading {

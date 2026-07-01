@@ -1143,6 +1143,37 @@ export default function App() {
     }
   }
 
+  async function renameProject(project) {
+    if (!project?.id) return
+
+    const name = window.prompt("Project name", project.name || "")
+    if (!name?.trim() || name.trim() === project.name) return
+
+    setError("")
+    setStatus("Renaming project")
+
+    try {
+      const response = await fetch(`/api/projects/${project.id}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ name }),
+      })
+      const data = await readJsonResponse(response)
+
+      if (!response.ok) throw new Error(data.error || "Could not rename project.")
+
+      setProjects((current) => current.map((item) => item.id === data.project.id ? data.project : item))
+      setStatus("")
+
+      if (activeProject === project.slug) {
+        switchProject(data.project.slug)
+      }
+    } catch (projectError) {
+      setError(projectError.message || "Could not rename project.")
+      setStatus("")
+    }
+  }
+
   async function signOut() {
     await fetch("/api/auth/logout", { method: "POST" })
     window.location.replace("/signup")
@@ -1282,6 +1313,7 @@ export default function App() {
         onResetAdminHome={resetAdminHome}
         onRestorePage={restoreFromTrash}
         onCreateProject={createProject}
+        onRenameProject={renameProject}
         onSelectPage={selectPage}
         onSwitchDomain={switchDomain}
         onSwitchProject={switchProject}

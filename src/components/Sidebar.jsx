@@ -1,9 +1,8 @@
-import { ArrowLeft, CaretRight, Check, Folder, LinkSimple, List, Trash, X } from "@phosphor-icons/react"
+import { ArrowLeft, CaretRight, Check, Folder, LinkSimple, List, PencilSimple, Trash, X } from "@phosphor-icons/react"
 import { detectSource } from "../lib/content"
 import {
   EDITABLE_DOMAINS,
   PROJECT_ALL,
-  PROJECT_NONE,
   adminPathLabel,
   displayTitle,
   permanentPath,
@@ -85,6 +84,20 @@ function TrashList({ pages, onDeletePermanently, onRestore }) {
   ))
 }
 
+function ProjectMenuItem({ isActive, onRename, onSelect, project }) {
+  return (
+    <div className={`project-menu-row ${isActive ? "is-active" : ""}`}>
+      <button className="project-menu-item" type="button" onClick={() => onSelect(project.slug)}>
+        <span>{project.name}</span>
+        {isActive ? <Check size={14} weight="bold" aria-hidden="true" /> : null}
+      </button>
+      <button className="project-rename-button" type="button" onClick={() => onRename(project)} aria-label={`Rename ${project.name}`}>
+        <PencilSimple size={14} weight="bold" aria-hidden="true" />
+      </button>
+    </div>
+  )
+}
+
 export function Sidebar({
   account,
   activeDomain,
@@ -104,6 +117,7 @@ export function Sidebar({
   onDeletePage,
   onResetAdminHome,
   onRestorePage,
+  onRenameProject,
   onSelectPage,
   onSwitchDomain,
   onSwitchProject,
@@ -126,7 +140,7 @@ export function Sidebar({
   const isUserWorkspace = Boolean(account && (account.role !== "owner" || workspaceMode === "personal"))
   const activeProjectRow = projects.find((project) => project.slug === activeProject)
   const workspaceLabel = isUserWorkspace
-    ? activeProjectRow?.name || (activeProject === PROJECT_NONE ? "No project" : `@${account.username}`)
+    ? activeProjectRow?.name || `@${account.username}`
     : activeDomain
 
   return (
@@ -171,15 +185,14 @@ export function Sidebar({
                       <span>All personal pages</span>
                       {workspaceMode === "personal" && activeProject === PROJECT_ALL ? <Check size={14} weight="bold" aria-hidden="true" /> : null}
                     </button>
-                    <button className={`project-menu-item ${workspaceMode === "personal" && activeProject === PROJECT_NONE ? "is-active" : ""}`} type="button" onClick={() => onSwitchProject(PROJECT_NONE)}>
-                      <span>No project</span>
-                      {workspaceMode === "personal" && activeProject === PROJECT_NONE ? <Check size={14} weight="bold" aria-hidden="true" /> : null}
-                    </button>
                     {projects.map((project) => (
-                      <button className={`project-menu-item ${workspaceMode === "personal" && activeProject === project.slug ? "is-active" : ""}`} type="button" onClick={() => onSwitchProject(project.slug)} key={project.id}>
-                        <span>{project.name}</span>
-                        {workspaceMode === "personal" && activeProject === project.slug ? <Check size={14} weight="bold" aria-hidden="true" /> : null}
-                      </button>
+                      <ProjectMenuItem
+                        isActive={workspaceMode === "personal" && activeProject === project.slug}
+                        onRename={onRenameProject}
+                        onSelect={onSwitchProject}
+                        project={project}
+                        key={project.id}
+                      />
                     ))}
                     <button className="project-menu-item" type="button" onClick={onCreateProject}>
                       <span>Add project...</span>
@@ -200,15 +213,14 @@ export function Sidebar({
                       <span>All personal pages</span>
                       {activeProject === PROJECT_ALL ? <Check size={14} weight="bold" aria-hidden="true" /> : null}
                     </button>
-                    <button className={`project-menu-item ${activeProject === PROJECT_NONE ? "is-active" : ""}`} type="button" onClick={() => onSwitchProject(PROJECT_NONE)}>
-                      <span>No project</span>
-                      {activeProject === PROJECT_NONE ? <Check size={14} weight="bold" aria-hidden="true" /> : null}
-                    </button>
                     {projects.map((project) => (
-                      <button className={`project-menu-item ${activeProject === project.slug ? "is-active" : ""}`} type="button" onClick={() => onSwitchProject(project.slug)} key={project.id}>
-                        <span>{project.name}</span>
-                        {activeProject === project.slug ? <Check size={14} weight="bold" aria-hidden="true" /> : null}
-                      </button>
+                      <ProjectMenuItem
+                        isActive={activeProject === project.slug}
+                        onRename={onRenameProject}
+                        onSelect={onSwitchProject}
+                        project={project}
+                        key={project.id}
+                      />
                     ))}
                     <button className="project-menu-item" type="button" onClick={onCreateProject}>
                       <span>Add project...</span>

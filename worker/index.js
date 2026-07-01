@@ -1205,6 +1205,60 @@ async function createProject(request, env, user = null) {
   return json({ project: projectRowToResponse(project) }, { status: 201 })
 }
 
+async function updateProject(request, env, id, user = null) {
+  if (!env.DB) {
+    return json({ error: "DB binding is not configured." }, { status: 500 })
+  }
+
+  if (!user) return unauthorizedJson()
+  if (!user.username) {
+    return json({ error: "Choose a username before editing projects." }, { status: 403 })
+  }
+
+  const existing = await env.DB.prepare(
+    "SELECT * FROM projects WHERE id = ? AND owner_id = ? LIMIT 1"
+  ).bind(id, user.id).first()
+
+  if (!existing) {
+    return json({ error: "Project not found." }, { status: 404 })
+  }
+
+  const body = await request.json()
+  const name = String(body.name || "").trim()
+  const slug = slugify(body.slug || name)
+
+  if (!name || !slug) {
+    return json({ error: "Name the project first." }, { status: 400 })
+  }
+
+  const existingProject = await env.DB.prepare(
+    "SELECT id FROM projects WHERE owner_id = ? AND slug = ? AND id <> ? LIMIT 1"
+  ).bind(user.id, slug, id).first()
+
+  if (existingProject) {
+    return json({ error: `${slug} is already a project.` }, { status: 409 })
+  }
+
+  const conflictingPage = await env.DB.prepare(
+    `SELECT id FROM pages
+     WHERE domain = ? AND namespace = 'user' AND owner_id = ?
+       AND project_id = '' AND path = ? AND deleted_at IS NULL
+     LIMIT 1`
+  ).bind(DEFAULT_DOMAIN, user.id, `/${slug}`).first()
+
+  if (conflictingPage) {
+    return json({ error: `${slug} is already used as a personal page path.` }, { status: 409 })
+  }
+
+  const now = new Date().toISOString()
+  await env.DB.prepare(
+    "UPDATE projects SET slug = ?, name = ?, updated_at = ? WHERE id = ?"
+  ).bind(slug, name.slice(0, 80), now, id).run()
+
+  const project = await env.DB.prepare("SELECT * FROM projects WHERE id = ?").bind(id).first()
+  return json({ project: projectRowToResponse(project) })
+}
+
 async function updatePage(request, env, id, user = null) {
   if (!env.DB) {
     return json({ error: "DB binding is not configured." }, { status: 500 })
@@ -1982,6 +2036,11 @@ export default {
 
     if (url.pathname === "/api/projects" && request.method === "POST") {
       return createProject(request, env, await currentUser(request, env))
+    }
+
+    const projectMatch = url.pathname.match(/^\/api\/projects\/([^/]+)$/)
+    if (projectMatch && request.method === "PATCH") {
+      return updateProject(request, env, projectMatch[1], await currentUser(request, env))
     }
 
     if (url.pathname === "/api/pages" && request.method === "POST") {
