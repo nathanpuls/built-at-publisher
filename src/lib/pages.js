@@ -3,6 +3,8 @@ export const EDITABLE_DOMAINS = ["built.at", "nathanpuls.com", "fullpsych.com", 
 export const PLATFORM_OWNER_ID = "built-at-owner"
 export const SIGN_IN_PAGE_ID = "builtSignup"
 export const CHOOSE_USERNAME_PAGE_ID = "builtChooseUsername"
+export const PROJECT_ALL = "all"
+export const PROJECT_NONE = "none"
 
 export function normalizePath(path) {
   const trimmed = String(path || "").trim()
@@ -55,7 +57,8 @@ export function publicPath(page) {
 
   if (page.namespace === "user" && page.username) {
     const usernameRoot = `/${page.username}`
-    return page.path && page.path !== "/" ? `${usernameRoot}${page.path}` : usernameRoot
+    const projectRoot = page.projectSlug ? `${usernameRoot}/${page.projectSlug}` : usernameRoot
+    return page.path && page.path !== "/" ? `${projectRoot}${page.path}` : projectRoot
   }
 
   if (page.path) return `/p${page.path}`
@@ -112,16 +115,18 @@ export function adminUrlForPage(page) {
 
   if (page?.domain && page.domain !== DEFAULT_DOMAIN) params.set("domain", page.domain)
   if (page?.namespace === "user") params.set("workspace", "personal")
+  if (page?.namespace === "user" && page.projectSlug) params.set("project", page.projectSlug)
   if (page?.path) params.set("path", displayPath(page.path))
   else if (page?.id) params.set("id", page.id)
 
   return `/admin${params.toString() ? `?${params}` : ""}`
 }
 
-export function adminHomeUrl(domain = DEFAULT_DOMAIN, workspace = "platform") {
+export function adminHomeUrl(domain = DEFAULT_DOMAIN, workspace = "platform", project = PROJECT_ALL) {
   const params = new URLSearchParams()
   if (domain !== DEFAULT_DOMAIN) params.set("domain", domain)
   if (workspace === "personal") params.set("workspace", "personal")
+  if (workspace === "personal" && project && project !== PROJECT_ALL) params.set("project", project)
   return `/admin${params.toString() ? `?${params}` : ""}`
 }
 

@@ -20,6 +20,7 @@ export function EditorWorkspace({
   sourceType,
 }) {
   if (!selectedPage) return null
+  const canSetHome = !selectedPage.projectId
 
   return (
     <div className="editor">
@@ -74,17 +75,19 @@ export function EditorWorkspace({
               >
                 <CopySimple size={17} weight="bold" aria-hidden="true" />
               </button>
-              <button
-                className={`source-tool-action home-tool-action ${selectedPage.isHome || homeStatus === "set" ? "is-home" : ""}`}
-                type="button"
-                onClick={onToggleHome}
-                data-tooltip={selectedPage.isHome ? "Unset home (H)" : "Set as home (H)"}
-                aria-label={selectedPage.isHome ? "Unset home" : "Set as home"}
-                aria-keyshortcuts="h"
-                aria-pressed={selectedPage.isHome}
-              >
-                <HouseSimple size={17} weight="bold" aria-hidden="true" />
-              </button>
+              {canSetHome ? (
+                <button
+                  className={`source-tool-action home-tool-action ${selectedPage.isHome || homeStatus === "set" ? "is-home" : ""}`}
+                  type="button"
+                  onClick={onToggleHome}
+                  data-tooltip={selectedPage.isHome ? "Unset home (H)" : "Set as home (H)"}
+                  aria-label={selectedPage.isHome ? "Unset home" : "Set as home"}
+                  aria-keyshortcuts="h"
+                  aria-pressed={selectedPage.isHome}
+                >
+                  <HouseSimple size={17} weight="bold" aria-hidden="true" />
+                </button>
+              ) : null}
             </span>
           </div>
           <div className="source-field">

@@ -223,6 +223,31 @@ button:focus-visible,
   background: var(--soft);
 }
 
+.domain-menu-section {
+  padding: 5px 0;
+  border-top: 1px solid var(--line);
+  margin-top: 4px;
+}
+
+.domain-menu-section > span {
+  display: block;
+  padding: 7px 9px 4px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 750;
+}
+
+.domain-menu .project-menu-item {
+  padding-left: 22px;
+  color: #4b5563;
+}
+
+.domain-menu .project-menu-item span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .domain-settings-heading {
   min-width: 0;
   padding: 8px;

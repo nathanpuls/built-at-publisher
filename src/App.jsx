@@ -6,6 +6,8 @@ import { detectSource, titleFromSource } from "./lib/content"
 import {
   DEFAULT_DOMAIN,
   EDITABLE_DOMAINS,
+  PROJECT_ALL,
+  PROJECT_NONE,
   adminHomeUrl,
   adminPathLabel,
   adminUrlForPage,
@@ -89,6 +91,8 @@ export default function App() {
   const [account, setAccount] = useState(null)
   const [authLoaded, setAuthLoaded] = useState(false)
   const [workspaceMode, setWorkspaceMode] = useState(initialParams.get("workspace") === "personal" ? "personal" : "platform")
+  const [activeProject, setActiveProject] = useState(initialParams.get("project") || PROJECT_ALL)
+  const [projects, setProjects] = useState([])
   const [pages, setPages] = useState([])
   const [selectedId, setSelectedId] = useState(null)
   const [draft, setDraft] = useState({ path: "", source: "", sourceType: "auto", title: "", titleMode: "auto" })
@@ -173,6 +177,32 @@ export default function App() {
   useEffect(() => {
     let cancelled = false
 
+    async function loadProjects() {
+      if (!authLoaded || !isPersonalWorkspace) {
+        setProjects([])
+        return
+      }
+
+      try {
+        const response = await fetch("/api/projects")
+        const data = await readJsonResponse(response)
+
+        if (!response.ok) throw new Error(data.error || "Could not load projects.")
+        if (!cancelled) setProjects(data.projects || [])
+      } catch (projectError) {
+        if (!cancelled) setError(projectError.message)
+      }
+    }
+
+    loadProjects()
+    return () => {
+      cancelled = true
+    }
+  }, [authLoaded, isPersonalWorkspace])
+
+  useEffect(() => {
+    let cancelled = false
+
     async function loadPages() {
       if (!authLoaded) return
       setIsLoading(true)
@@ -181,6 +211,7 @@ export default function App() {
       try {
         const params = new URLSearchParams({ domain: activeDomain })
         if (isPersonalWorkspace) params.set("workspace", "personal")
+        if (isPersonalWorkspace && activeProject !== PROJECT_ALL) params.set("project", activeProject)
         const response = await fetch(`/api/pages?${params}`)
         const data = await readJsonResponse(response)
 
@@ -193,6 +224,9 @@ export default function App() {
             source: page.source || page.markdown || page.html || "",
             sourceType: page.sourceType || "auto",
             domain: page.domain || activeDomain,
+            projectId: page.projectId || "",
+            projectSlug: page.projectSlug || "",
+            projectName: page.projectName || "",
             title: page.title || "",
             titleMode: page.titleMode || "manual",
           }))
@@ -200,7 +234,9 @@ export default function App() {
 
         if (!cancelled) {
           setPages(normalizedPages)
-          setSelectedId((current) => current || selectPageFromUrl(normalizedPages))
+          setSelectedId((current) => normalizedPages.some((page) => page.id === current)
+            ? current
+            : selectPageFromUrl(normalizedPages))
         }
       } catch (loadError) {
         if (!cancelled) setError(loadError.message)
@@ -213,7 +249,7 @@ export default function App() {
     return () => {
       cancelled = true
     }
-  }, [activeDomain, authLoaded, isPersonalWorkspace])
+  }, [activeDomain, activeProject, authLoaded, isPersonalWorkspace])
 
   useEffect(() => {
     let cancelled = false
@@ -304,7 +340,7 @@ export default function App() {
 
     if (keepAdminHomeUrl.current) {
       keepAdminHomeUrl.current = false
-      window.history.replaceState({}, "", adminHomeUrl(activeDomain, isPersonalWorkspace ? "personal" : "platform"))
+      window.history.replaceState({}, "", adminHomeUrl(activeDomain, isPersonalWorkspace ? "personal" : "platform", activeProject))
     } else {
       window.history.replaceState({}, "", adminUrlForPage(page))
     }
@@ -316,7 +352,7 @@ export default function App() {
         pathInputRef.current?.select()
       })
     }
-  }, [selectedId, activeDomain, isPersonalWorkspace])
+  }, [selectedId, activeDomain, activeProject, isPersonalWorkspace])
 
   useEffect(() => {
     writeCollapsedFolders(collapsedFolders)
@@ -605,6 +641,7 @@ export default function App() {
           status: "published",
           namespace: isPersonalWorkspace ? "user" : "platform",
           ownerId: isPersonalWorkspace ? account?.id : undefined,
+          project: isPersonalWorkspace && ![PROJECT_ALL, PROJECT_NONE].includes(activeProject) ? activeProject : undefined,
         }),
       })
       const page = await readJsonResponse(response)
@@ -643,7 +680,7 @@ export default function App() {
         if (page.id === selectedId) {
           const nextSelected = next[0]?.id || null
           setSelectedId(nextSelected)
-          window.history.replaceState({}, "", nextSelected ? adminUrlForPage(next[0]) : adminHomeUrl(activeDomain, isPersonalWorkspace ? "personal" : "platform"))
+          window.history.replaceState({}, "", nextSelected ? adminUrlForPage(next[0]) : adminHomeUrl(activeDomain, isPersonalWorkspace ? "personal" : "platform", activeProject))
         }
 
         return next
@@ -687,7 +724,7 @@ export default function App() {
         if (deletedIds.has(selectedId)) {
           const nextSelected = next[0]?.id || null
           setSelectedId(nextSelected)
-          window.history.replaceState({}, "", nextSelected ? adminUrlForPage(next[0]) : adminHomeUrl(activeDomain, isPersonalWorkspace ? "personal" : "platform"))
+          window.history.replaceState({}, "", nextSelected ? adminUrlForPage(next[0]) : adminHomeUrl(activeDomain, isPersonalWorkspace ? "personal" : "platform", activeProject))
         }
 
         return next
@@ -788,7 +825,7 @@ export default function App() {
     setIsMobileSidebarOpen(false)
     keepAdminHomeUrl.current = true
     setSelectedId(pages[0]?.id || null)
-    window.history.pushState({}, "", adminHomeUrl(activeDomain, isPersonalWorkspace ? "personal" : "platform"))
+    window.history.pushState({}, "", adminHomeUrl(activeDomain, isPersonalWorkspace ? "personal" : "platform", activeProject))
   }
 
   function toggleFolder(folder) {
@@ -870,6 +907,7 @@ export default function App() {
           allowDuplicate: true,
           namespace: isPersonalWorkspace ? "user" : "platform",
           ownerId: isPersonalWorkspace ? account?.id : undefined,
+          project: isPersonalWorkspace && ![PROJECT_ALL, PROJECT_NONE].includes(activeProject) ? activeProject : undefined,
         }),
       })
       const page = await readJsonResponse(response)
@@ -941,6 +979,7 @@ export default function App() {
         event.preventDefault()
         duplicateSource()
       } else if (key === "h") {
+        if (selectedPage.projectId) return
         event.preventDefault()
         saveDraft(draft, { isHome: !selectedPage.isHome })
       }
@@ -1012,6 +1051,7 @@ export default function App() {
 
     flushPendingSave()
     setWorkspaceMode("platform")
+    setActiveProject(PROJECT_ALL)
     setActiveDomain(domain)
     setPages([])
     setSelectedId(null)
@@ -1033,7 +1073,7 @@ export default function App() {
       return
     }
 
-    if (workspaceMode === "personal") {
+    if (workspaceMode === "personal" && activeProject === PROJECT_ALL) {
       setIsDomainMenuOpen(false)
       return
     }
@@ -1041,6 +1081,7 @@ export default function App() {
     flushPendingSave()
     setWorkspaceMode("personal")
     setActiveDomain(DEFAULT_DOMAIN)
+    setActiveProject(PROJECT_ALL)
     setPages([])
     setSelectedId(null)
     setIsMobileSidebarOpen(false)
@@ -1048,7 +1089,58 @@ export default function App() {
     setQuery("")
     setIsDomainMenuOpen(false)
     setIsSettingsMenuOpen(false)
-    window.history.pushState({}, "", adminHomeUrl(DEFAULT_DOMAIN, "personal"))
+    window.history.pushState({}, "", adminHomeUrl(DEFAULT_DOMAIN, "personal", PROJECT_ALL))
+  }
+
+  function switchProject(project = PROJECT_ALL) {
+    if (!account?.username) {
+      window.location.assign("/signup?choose=username")
+      return
+    }
+
+    flushPendingSave()
+    setWorkspaceMode("personal")
+    setActiveDomain(DEFAULT_DOMAIN)
+    setActiveProject(project || PROJECT_ALL)
+    setPages([])
+    setSelectedId(null)
+    setIsMobileSidebarOpen(false)
+    setDeletedPage(null)
+    setQuery("")
+    setIsDomainMenuOpen(false)
+    setIsSettingsMenuOpen(false)
+    window.history.pushState({}, "", adminHomeUrl(DEFAULT_DOMAIN, "personal", project || PROJECT_ALL))
+  }
+
+  async function createProject() {
+    if (!account?.username) {
+      window.location.assign("/signup?choose=username")
+      return
+    }
+
+    const name = window.prompt("Project name")
+    if (!name?.trim()) return
+
+    setError("")
+    setStatus("Creating project")
+
+    try {
+      const response = await fetch("/api/projects", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ name }),
+      })
+      const data = await readJsonResponse(response)
+
+      if (!response.ok) throw new Error(data.error || "Could not create project.")
+
+      setProjects((current) => [data.project, ...current.filter((project) => project.id !== data.project.id)])
+      setStatus("")
+      switchProject(data.project.slug)
+    } catch (projectError) {
+      setError(projectError.message || "Could not create project.")
+      setStatus("")
+    }
   }
 
   async function signOut() {
@@ -1189,8 +1281,10 @@ export default function App() {
         onDeletePage={deleteRoute}
         onResetAdminHome={resetAdminHome}
         onRestorePage={restoreFromTrash}
+        onCreateProject={createProject}
         onSelectPage={selectPage}
         onSwitchDomain={switchDomain}
+        onSwitchProject={switchProject}
         onSwitchToPersonal={switchToPersonalWorkspace}
         onSignOut={signOut}
         onToggleDomainMenu={() => setIsDomainMenuOpen((current) => !current)}
@@ -1201,8 +1295,10 @@ export default function App() {
         }}
         onUploadFavicon={uploadFavicon}
         query={query}
+        projects={projects}
         searchInputRef={searchInputRef}
         selectedId={selectedId}
+        activeProject={activeProject}
         workspaceMode={workspaceMode}
         setQuery={setQuery}
         sidebarEntries={sidebarEntries}

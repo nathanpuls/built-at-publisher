@@ -58,6 +58,10 @@ function slugify(value) {
   return slug || "page"
 }
 
+function projectNameFromSlug(slug) {
+  return displayRoutePath(slug).replace(/-+/g, " ").trim() || "Project"
+}
+
 function stripTags(value) {
   return (value || "").replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim()
 }
@@ -174,7 +178,9 @@ function pagePublicPath(row) {
   }
 
   if (row.namespace === "user" && row.username) {
-    return `/${row.username}${path && path !== "/" ? path : ""}`
+    const projectSlug = row.project_slug || ""
+    const projectPrefix = projectSlug ? `/${projectSlug}` : ""
+    return `/${row.username}${projectPrefix}${path && path !== "/" ? path : ""}`
   }
 
   return path ? `/p${path}` : `/p/${row.id}${row.slug ? `/${row.slug}` : ""}`
@@ -224,6 +230,17 @@ function canAccessPage(user, page) {
 
 function unauthorizedJson() {
   return json({ error: "Sign in to continue." }, { status: 401 })
+}
+
+function projectRowToResponse(row) {
+  return {
+    id: row.id,
+    ownerId: row.owner_id,
+    slug: row.slug,
+    name: row.name || projectNameFromSlug(row.slug),
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  }
 }
 
 const {
@@ -775,6 +792,9 @@ function pageRowToResponse(row) {
     path,
     ownerId: row.owner_id || PLATFORM_OWNER_ID,
     namespace: row.namespace || "platform",
+    projectId: row.project_id || "",
+    projectSlug: row.project_slug || "",
+    projectName: row.project_name || "",
     username: row.username || "",
     isHome: Boolean(row.is_home),
     json: JSON.parse(row.json || EMPTY_DOC_JSON),
@@ -790,9 +810,10 @@ function pageRowToResponse(row) {
 
 async function pageById(env, id, { deleted = false } = {}) {
   return env.DB.prepare(
-    `SELECT pages.*, users.username
+    `SELECT pages.*, users.username, projects.slug AS project_slug, projects.name AS project_name
      FROM pages
      LEFT JOIN users ON users.id = pages.owner_id
+     LEFT JOIN projects ON projects.id = pages.project_id
      WHERE pages.id = ? AND pages.deleted_at IS ${deleted ? "NOT NULL" : "NULL"}`
   ).bind(id).first()
 }
@@ -853,19 +874,22 @@ async function savePageData(body, env, publish = false) {
     hash = `${id}:${hash}`
   }
 
-  const existing = await env.DB.prepare("SELECT created_at, favicon_url, owner_id, namespace FROM pages WHERE id = ?")
+  const requestedProjectId = typeof body.projectId === "string" ? body.projectId.trim() : ""
+
+  const existing = await env.DB.prepare("SELECT created_at, favicon_url, owner_id, namespace, project_id FROM pages WHERE id = ?")
     .bind(id)
     .first()
   const faviconUrl = requestedFaviconUrl ?? existing?.favicon_url ?? ""
   const storedOwnerId = existing?.owner_id || ownerId
   const storedNamespace = existing?.namespace || namespace
+  const storedProjectId = existing?.project_id || requestedProjectId
   const createdAt = existing?.created_at || now
   const publishedAt = status === "published" ? now : null
 
   await env.DB.prepare(
     `INSERT INTO pages
-      (id, slug, title, hash, markdown, json, status, created_at, updated_at, published_at, source, source_type, path, domain, favicon_url, title_mode, owner_id, namespace)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      (id, slug, title, hash, markdown, json, status, created_at, updated_at, published_at, source, source_type, path, domain, favicon_url, title_mode, owner_id, namespace, project_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(id) DO UPDATE SET
       slug = excluded.slug,
       title = excluded.title,
@@ -881,10 +905,11 @@ async function savePageData(body, env, publish = false) {
       title_mode = excluded.title_mode,
       owner_id = excluded.owner_id,
       namespace = excluded.namespace,
+      project_id = excluded.project_id,
       updated_at = excluded.updated_at,
       published_at = COALESCE(excluded.published_at, pages.published_at)`
   )
-    .bind(id, slug, title, hash, html, docJson, status, createdAt, now, publishedAt, source, sourceType, path, domain, faviconUrl, titleMode, storedOwnerId, storedNamespace)
+    .bind(id, slug, title, hash, html, docJson, status, createdAt, now, publishedAt, source, sourceType, path, domain, faviconUrl, titleMode, storedOwnerId, storedNamespace, storedProjectId)
     .run()
 
   const row = await pageById(env, id)
@@ -906,12 +931,17 @@ async function savePage(request, env, publish = false, user = null) {
 
     if (isRegularUser(user) && body.id) {
       const existing = await env.DB.prepare(
-        "SELECT owner_id, namespace, domain FROM pages WHERE id = ? LIMIT 1"
+        "SELECT owner_id, namespace, domain, project_id FROM pages WHERE id = ? LIMIT 1"
       ).bind(String(body.id)).first()
 
       if (existing && !canAccessPage(user, existing)) {
         return json({ error: "Page not found." }, { status: 404 })
       }
+    }
+
+    const requestedProject = await findUserProject(env, user, body.projectId || body.projectSlug || body.project)
+    if ((body.projectId || body.projectSlug || body.project) && !requestedProject) {
+      return json({ error: "Project not found." }, { status: 404 })
     }
 
     const scopedBody = isRegularUser(user) || personalWorkspace
@@ -920,8 +950,20 @@ async function savePage(request, env, publish = false, user = null) {
           domain: DEFAULT_DOMAIN,
           ownerId: user.id,
           namespace: "user",
+          projectId: requestedProject?.id || "",
         }
       : body
+
+    const conflictingProject = await projectPathConflict(env, {
+      ownerId: scopedBody.ownerId,
+      path: normalizeRoutePath(scopedBody.path || ""),
+      projectId: scopedBody.projectId || "",
+    })
+
+    if (conflictingProject) {
+      return json({ error: `${displayRoutePath(scopedBody.path)} is already a project.` }, { status: 409 })
+    }
+
     return json(await savePageData(scopedBody, env, publish))
   } catch (error) {
     if (error instanceof Response) {
@@ -1067,6 +1109,102 @@ async function getManagedSignupPage(env) {
   })
 }
 
+async function findUserProject(env, user, slugOrId) {
+  const value = String(slugOrId || "").trim()
+  if (!value || !user) return null
+
+  return env.DB.prepare(
+    `SELECT * FROM projects
+     WHERE owner_id = ? AND (id = ? OR slug = ?)
+     LIMIT 1`
+  ).bind(user.id, value, slugify(value)).first()
+}
+
+function singlePathSegment(path) {
+  const segments = displayRoutePath(path).split("/").filter(Boolean)
+  return segments.length === 1 ? segments[0] : ""
+}
+
+async function projectPathConflict(env, { ownerId, path, projectId = "" }) {
+  if (!env.DB || projectId || !ownerId) return null
+
+  const slug = singlePathSegment(path)
+  if (!slug) return null
+
+  return env.DB.prepare(
+    "SELECT id FROM projects WHERE owner_id = ? AND slug = ? LIMIT 1"
+  ).bind(ownerId, slug).first()
+}
+
+async function listProjects(env, user = null) {
+  if (!env.DB) {
+    return json({ error: "DB binding is not configured." }, { status: 500 })
+  }
+
+  if (!user) return unauthorizedJson()
+  if (!user.username) {
+    return json({ error: "Choose a username before creating projects." }, { status: 403 })
+  }
+
+  const result = await env.DB.prepare(
+    `SELECT *
+     FROM projects
+     WHERE owner_id = ?
+     ORDER BY updated_at DESC, name ASC`
+  ).bind(user.id).all()
+
+  return json({ projects: (result.results || []).map(projectRowToResponse) })
+}
+
+async function createProject(request, env, user = null) {
+  if (!env.DB) {
+    return json({ error: "DB binding is not configured." }, { status: 500 })
+  }
+
+  if (!user) return unauthorizedJson()
+  if (!user.username) {
+    return json({ error: "Choose a username before creating projects." }, { status: 403 })
+  }
+
+  const body = await request.json()
+  const name = String(body.name || body.slug || "").trim()
+  const slug = slugify(body.slug || name)
+
+  if (!name || !slug) {
+    return json({ error: "Name the project first." }, { status: 400 })
+  }
+
+  const existingProject = await env.DB.prepare(
+    "SELECT id FROM projects WHERE owner_id = ? AND slug = ? LIMIT 1"
+  ).bind(user.id, slug).first()
+
+  if (existingProject) {
+    return json({ error: `${slug} is already a project.` }, { status: 409 })
+  }
+
+  const conflictingPage = await env.DB.prepare(
+    `SELECT id FROM pages
+     WHERE domain = ? AND namespace = 'user' AND owner_id = ?
+       AND project_id = '' AND path = ? AND deleted_at IS NULL
+     LIMIT 1`
+  ).bind(DEFAULT_DOMAIN, user.id, `/${slug}`).first()
+
+  if (conflictingPage) {
+    return json({ error: `${slug} is already used as a personal page path.` }, { status: 409 })
+  }
+
+  const now = new Date().toISOString()
+  const id = makeId()
+
+  await env.DB.prepare(
+    `INSERT INTO projects (id, owner_id, slug, name, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?)`
+  ).bind(id, user.id, slug, name.slice(0, 80), now, now).run()
+
+  const project = await env.DB.prepare("SELECT * FROM projects WHERE id = ?").bind(id).first()
+  return json({ project: projectRowToResponse(project) }, { status: 201 })
+}
+
 async function updatePage(request, env, id, user = null) {
   if (!env.DB) {
     return json({ error: "DB binding is not configured." }, { status: 500 })
@@ -1092,6 +1230,7 @@ async function updatePage(request, env, id, user = null) {
     : normalizeDomain(body.domain ?? existing.domain)
   const ownerId = existing.owner_id || PLATFORM_OWNER_ID
   const namespace = existing.namespace || "platform"
+  const projectId = existing.project_id || ""
   const faviconUrl = typeof body.faviconUrl === "string" ? body.faviconUrl.trim() : existing.favicon_url || ""
   const source = (
     typeof body.source === "string" ? body.source :
@@ -1129,10 +1268,16 @@ async function updatePage(request, env, id, user = null) {
       return json({ error: `${displayRoutePath(path)} starts with a reserved path.` }, { status: 400 })
     }
 
+    const conflictingProject = await projectPathConflict(env, { ownerId, path, projectId })
+
+    if (conflictingProject) {
+      return json({ error: `${displayRoutePath(path)} is already a project.` }, { status: 409 })
+    }
+
     const pathConflict = await env.DB.prepare(
-      "SELECT id FROM pages WHERE domain = ? AND namespace = ? AND owner_id = ? AND path = ? AND id <> ? AND deleted_at IS NULL"
+      "SELECT id FROM pages WHERE domain = ? AND namespace = ? AND owner_id = ? AND project_id = ? AND path = ? AND id <> ? AND deleted_at IS NULL"
     )
-      .bind(domain, namespace, ownerId, path, id)
+      .bind(domain, namespace, ownerId, projectId, path, id)
       .first()
 
     if (pathConflict) {
@@ -1143,9 +1288,9 @@ async function updatePage(request, env, id, user = null) {
   if (body.isHome) {
     await env.DB.prepare(
       `UPDATE pages SET is_home = 0
-       WHERE domain = ? AND namespace = ? AND owner_id = ?
+       WHERE domain = ? AND namespace = ? AND owner_id = ? AND project_id = ?
          AND is_home = 1 AND deleted_at IS NULL`
-    ).bind(domain, namespace, ownerId).run()
+    ).bind(domain, namespace, ownerId, projectId).run()
   }
 
   await env.DB.prepare(
@@ -1215,19 +1360,21 @@ async function listTrash(env, domain = DEFAULT_DOMAIN, user = null, personalWork
   await purgeExpiredTrash(env)
 
   const result = isRegularUser(user) || (user && personalWorkspace)
-    ? await env.DB.prepare(
-        `SELECT pages.*, users.username
+      ? await env.DB.prepare(
+        `SELECT pages.*, users.username, projects.slug AS project_slug, projects.name AS project_name
          FROM pages
          LEFT JOIN users ON users.id = pages.owner_id
+         LEFT JOIN projects ON projects.id = pages.project_id
          WHERE pages.domain = ? AND pages.namespace = 'user'
            AND pages.owner_id = ? AND pages.deleted_at IS NOT NULL
          ORDER BY pages.deleted_at DESC
          LIMIT 100`
       ).bind(DEFAULT_DOMAIN, user.id).all()
     : await env.DB.prepare(
-        `SELECT pages.*, users.username
+        `SELECT pages.*, users.username, projects.slug AS project_slug, projects.name AS project_name
          FROM pages
          LEFT JOIN users ON users.id = pages.owner_id
+         LEFT JOIN projects ON projects.id = pages.project_id
          WHERE pages.domain = ? AND pages.deleted_at IS NOT NULL
          ORDER BY pages.deleted_at DESC
          LIMIT 100`
@@ -1254,12 +1401,13 @@ async function restorePage(env, id, user = null) {
   if (page.path) {
     const conflict = await env.DB.prepare(
       `SELECT id FROM pages
-       WHERE domain = ? AND namespace = ? AND owner_id = ?
+       WHERE domain = ? AND namespace = ? AND owner_id = ? AND project_id = ?
          AND path = ? AND deleted_at IS NULL`
     ).bind(
       normalizeDomain(page.domain),
       page.namespace || "platform",
       page.owner_id || PLATFORM_OWNER_ID,
+      page.project_id || "",
       page.path
     ).first()
 
@@ -1273,12 +1421,13 @@ async function restorePage(env, id, user = null) {
   if (page.is_home) {
     await env.DB.prepare(
       `UPDATE pages SET is_home = 0
-       WHERE domain = ? AND namespace = ? AND owner_id = ?
+       WHERE domain = ? AND namespace = ? AND owner_id = ? AND project_id = ?
          AND is_home = 1 AND deleted_at IS NULL`
     ).bind(
       normalizeDomain(page.domain),
       page.namespace || "platform",
-      page.owner_id || PLATFORM_OWNER_ID
+      page.owner_id || PLATFORM_OWNER_ID,
+      page.project_id || ""
     ).run()
   }
 
@@ -1353,6 +1502,69 @@ async function renderPlatformPath(pathname, env) {
   return row ? renderPageRow(row, env) : null
 }
 
+async function renderProjectDirectory(user, project, env) {
+  const result = await env.DB.prepare(
+    `SELECT pages.*, users.username, projects.slug AS project_slug, projects.name AS project_name
+     FROM pages
+     JOIN users ON users.id = pages.owner_id
+     JOIN projects ON projects.id = pages.project_id
+     WHERE pages.domain = ? AND pages.namespace = 'user'
+       AND pages.owner_id = ? AND pages.project_id = ? AND pages.deleted_at IS NULL
+     ORDER BY pages.updated_at DESC
+     LIMIT 100`
+  ).bind(DEFAULT_DOMAIN, user.id, project.id).all()
+
+  const pages = result.results || []
+  const title = project.name || projectNameFromSlug(project.slug)
+  const links = pages.length
+    ? pages.map((page) => {
+        const href = pagePublicPath(page)
+        const label = escapeHtml(calculatedPageTitle(page) || displayRoutePath(page.path) || "Untitled")
+        const meta = escapeHtml(displayRoutePath(page.path))
+        return `<li><a href="${escapeHtml(href)}">${label}</a>${meta ? `<span>${meta}</span>` : ""}</li>`
+      }).join("")
+    : `<li class="empty">No pages in this project yet.</li>`
+
+  const html = `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>${escapeHtml(title)}</title>
+  <style>
+    html { font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #111827; background: #fff; }
+    body { margin: 0; min-height: 100vh; display: grid; place-items: start center; }
+    main { width: min(100% - 32px, 720px); padding: 72px 0; }
+    p { margin: 0; color: #6b7280; font-size: 15px; }
+    h1 { margin: 10px 0 26px; font-size: clamp(40px, 8vw, 72px); line-height: 0.96; letter-spacing: 0; }
+    ul { list-style: none; margin: 0; padding: 0; border-top: 1px solid #e5e7eb; }
+    li { border-bottom: 1px solid #e5e7eb; }
+    li.empty { padding: 18px 0; color: #6b7280; }
+    a { min-height: 56px; display: flex; align-items: center; justify-content: space-between; gap: 18px; color: inherit; text-decoration: none; font-weight: 750; }
+    a:hover { color: #374151; }
+    span { color: #6b7280; font-size: 14px; font-weight: 500; }
+  </style>
+</head>
+<body>
+  <main>
+    <p>@${escapeHtml(user.username)}</p>
+    <h1>${escapeHtml(title)}</h1>
+    <ul>${links}</ul>
+  </main>
+</body>
+</html>`
+
+  return new Response(withPageMetadata(html, {
+    title,
+    domain: DEFAULT_DOMAIN,
+  }), {
+    headers: {
+      "content-type": "text/html; charset=utf-8",
+      "cache-control": "public, max-age=5, must-revalidate",
+    },
+  })
+}
+
 async function renderUserPath(usernameValue, pathname, env) {
   const username = normalizeUsername(usernameValue)
   if (!username) return null
@@ -1365,24 +1577,50 @@ async function renderUserPath(usernameValue, pathname, env) {
   const path = normalizeRoutePath(pathname)
   const row = path
     ? await env.DB.prepare(
-      `SELECT pages.*, users.username
+      `SELECT pages.*, users.username, projects.slug AS project_slug, projects.name AS project_name
        FROM pages
        JOIN users ON users.id = pages.owner_id
+       LEFT JOIN projects ON projects.id = pages.project_id
        WHERE pages.domain = ? AND pages.namespace = 'user'
-         AND pages.owner_id = ? AND pages.path = ? AND pages.deleted_at IS NULL
+         AND pages.owner_id = ? AND pages.project_id = '' AND pages.path = ? AND pages.deleted_at IS NULL
        LIMIT 1`
     ).bind(DEFAULT_DOMAIN, user.id, path).first()
     : await env.DB.prepare(
-      `SELECT pages.*, users.username
+      `SELECT pages.*, users.username, projects.slug AS project_slug, projects.name AS project_name
        FROM pages
        JOIN users ON users.id = pages.owner_id
+       LEFT JOIN projects ON projects.id = pages.project_id
        WHERE pages.domain = ? AND pages.namespace = 'user'
-         AND pages.owner_id = ? AND pages.is_home = 1 AND pages.deleted_at IS NULL
+         AND pages.owner_id = ? AND pages.project_id = '' AND pages.is_home = 1 AND pages.deleted_at IS NULL
        ORDER BY pages.updated_at DESC
        LIMIT 1`
     ).bind(DEFAULT_DOMAIN, user.id).first()
 
-  return row ? renderPageRow(row, env) : null
+  if (row) return renderPageRow(row, env)
+  if (!path) return null
+
+  const segments = displayRoutePath(path).split("/").filter(Boolean)
+  const projectSlug = segments[0] || ""
+  const project = await env.DB.prepare(
+    "SELECT * FROM projects WHERE owner_id = ? AND slug = ? LIMIT 1"
+  ).bind(user.id, projectSlug).first()
+
+  if (!project) return null
+
+  const projectPath = normalizeRoutePath(segments.slice(1).join("/"))
+  if (!projectPath) return renderProjectDirectory(user, project, env)
+
+  const projectRow = await env.DB.prepare(
+    `SELECT pages.*, users.username, projects.slug AS project_slug, projects.name AS project_name
+     FROM pages
+     JOIN users ON users.id = pages.owner_id
+     JOIN projects ON projects.id = pages.project_id
+     WHERE pages.domain = ? AND pages.namespace = 'user'
+       AND pages.owner_id = ? AND pages.project_id = ? AND pages.path = ? AND pages.deleted_at IS NULL
+     LIMIT 1`
+  ).bind(DEFAULT_DOMAIN, user.id, project.id, projectPath).first()
+
+  return projectRow ? renderPageRow(projectRow, env) : null
 }
 
 async function renderPageRow(row, env) {
@@ -1541,7 +1779,7 @@ async function renderRoutePath(pathname, env, domain = DEFAULT_DOMAIN) {
   return renderPageRow(row, env)
 }
 
-async function listPages(env, domain = DEFAULT_DOMAIN, user = null, personalWorkspace = false) {
+async function listPages(env, domain = DEFAULT_DOMAIN, user = null, personalWorkspace = false, projectScope = "all") {
   if (!env.DB) {
     return json({ error: "DB binding is not configured." }, { status: 500 })
   }
@@ -1552,24 +1790,57 @@ async function listPages(env, domain = DEFAULT_DOMAIN, user = null, personalWork
 
   const fields = `SELECT pages.id, pages.slug, pages.title, pages.title_mode, pages.status, pages.markdown,
       pages.source, pages.source_type, pages.path, pages.domain, pages.is_home, pages.favicon_url,
-      pages.owner_id, pages.namespace, users.username,
+      pages.owner_id, pages.namespace, pages.project_id, users.username,
+      projects.slug AS project_slug, projects.name AS project_name,
       pages.created_at AS createdAt, pages.updated_at AS updatedAt, pages.published_at AS publishedAt
      FROM pages
-     LEFT JOIN users ON users.id = pages.owner_id`
-  const result = isRegularUser(user) || (user && personalWorkspace)
-    ? await env.DB.prepare(
+     LEFT JOIN users ON users.id = pages.owner_id
+     LEFT JOIN projects ON projects.id = pages.project_id`
+  let result
+
+  if (isRegularUser(user) || (user && personalWorkspace)) {
+    const normalizedProjectScope = String(projectScope || "all").trim()
+    const project = !["all", "none", ""].includes(normalizedProjectScope)
+      ? await findUserProject(env, user, normalizedProjectScope)
+      : null
+
+    if (normalizedProjectScope && !["all", "none"].includes(normalizedProjectScope) && !project) {
+      return json({ pages: [] })
+    }
+
+    if (project) {
+      result = await env.DB.prepare(
+        `${fields}
+         WHERE pages.domain = ? AND pages.namespace = 'user'
+           AND pages.owner_id = ? AND pages.project_id = ? AND pages.deleted_at IS NULL
+         ORDER BY pages.updated_at DESC
+         LIMIT 100`
+      ).bind(DEFAULT_DOMAIN, user.id, project.id).all()
+    } else if (normalizedProjectScope === "none") {
+      result = await env.DB.prepare(
+        `${fields}
+         WHERE pages.domain = ? AND pages.namespace = 'user'
+           AND pages.owner_id = ? AND pages.project_id = '' AND pages.deleted_at IS NULL
+         ORDER BY pages.updated_at DESC
+         LIMIT 100`
+      ).bind(DEFAULT_DOMAIN, user.id).all()
+    } else {
+      result = await env.DB.prepare(
         `${fields}
          WHERE pages.domain = ? AND pages.namespace = 'user'
            AND pages.owner_id = ? AND pages.deleted_at IS NULL
          ORDER BY pages.updated_at DESC
          LIMIT 100`
       ).bind(DEFAULT_DOMAIN, user.id).all()
-    : await env.DB.prepare(
-        `${fields}
-         WHERE pages.domain = ? AND pages.deleted_at IS NULL
-         ORDER BY pages.updated_at DESC
-         LIMIT 100`
-      ).bind(normalizeDomain(domain)).all()
+    }
+  } else {
+    result = await env.DB.prepare(
+      `${fields}
+       WHERE pages.domain = ? AND pages.deleted_at IS NULL
+       ORDER BY pages.updated_at DESC
+       LIMIT 100`
+    ).bind(normalizeDomain(domain)).all()
+  }
 
   return json({
     pages: (result.results || []).map(({ markdown, ...page }) => ({
@@ -1582,6 +1853,9 @@ async function listPages(env, domain = DEFAULT_DOMAIN, user = null, personalWork
       ownerId: page.owner_id || PLATFORM_OWNER_ID,
       namespace: page.namespace || "platform",
       username: page.username || "",
+      projectId: page.project_id || "",
+      projectSlug: page.project_slug || "",
+      projectName: page.project_name || "",
       isHome: Boolean(page.is_home),
       faviconUrl: page.favicon_url || "",
       url: pagePublicPath(page),
@@ -1702,6 +1976,14 @@ export default {
       return renderManifest(request, env)
     }
 
+    if (url.pathname === "/api/projects" && request.method === "GET") {
+      return listProjects(env, await currentUser(request, env))
+    }
+
+    if (url.pathname === "/api/projects" && request.method === "POST") {
+      return createProject(request, env, await currentUser(request, env))
+    }
+
     if (url.pathname === "/api/pages" && request.method === "POST") {
       return savePage(request, env, false, await currentUser(request, env))
     }
@@ -1711,7 +1993,8 @@ export default {
         env,
         url.searchParams.get("domain") || DEFAULT_DOMAIN,
         await currentUser(request, env),
-        url.searchParams.get("workspace") === "personal"
+        url.searchParams.get("workspace") === "personal",
+        url.searchParams.get("project") || "all"
       )
     }
 

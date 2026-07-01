@@ -2,6 +2,8 @@ import { ArrowLeft, CaretRight, Check, Folder, LinkSimple, List, Trash, X } from
 import { detectSource } from "../lib/content"
 import {
   EDITABLE_DOMAINS,
+  PROJECT_ALL,
+  PROJECT_NONE,
   adminPathLabel,
   displayTitle,
   permanentPath,
@@ -35,6 +37,10 @@ function PageList({ pages, selectedId, onSelect, onDelete }) {
       ? (source.trim() ? detectSource(source) : "")
       : (page.sourceType || (source.trim() ? detectSource(source) : ""))
 
+    const meta = page.path
+      ? [page.projectName, displayTitle(page)].filter(Boolean).join(" / ")
+      : permanentPath(page)
+
     return (
       <div className={`item ${page.id === selectedId ? "is-active" : ""}`} data-id={page.id} key={page.id}>
         <button className="item-main" type="button" onClick={() => onSelect(page)}>
@@ -42,7 +48,7 @@ function PageList({ pages, selectedId, onSelect, onDelete }) {
             <span className={`path ${page.path ? "" : "is-temporary"}`}>{adminPathLabel(page)}</span>
             {page.isHome ? <span className="home-pill">Home</span> : null}
           </span>
-          <span className="meta">{page.path ? displayTitle(page) : permanentPath(page)}</span>
+          <span className="meta">{meta}</span>
         </button>
         <TypeMark type={sourceType} />
         {page.namespace === "system" ? <span className="delete-route" aria-hidden="true" /> : (
@@ -92,6 +98,7 @@ export function Sidebar({
   isTrashOpen,
   onClearSearch,
   onCreatePage,
+  onCreateProject,
   onDeleteFolder,
   onDeletePermanently,
   onDeletePage,
@@ -99,6 +106,7 @@ export function Sidebar({
   onRestorePage,
   onSelectPage,
   onSwitchDomain,
+  onSwitchProject,
   onSwitchToPersonal,
   onSignOut,
   onToggleDomainMenu,
@@ -106,15 +114,20 @@ export function Sidebar({
   onToggleTrash,
   onUploadFavicon,
   query,
+  projects,
   searchInputRef,
   selectedId,
+  activeProject,
   setQuery,
   sidebarEntries,
   trashPages,
   workspaceMode,
 }) {
   const isUserWorkspace = Boolean(account && (account.role !== "owner" || workspaceMode === "personal"))
-  const workspaceLabel = isUserWorkspace ? `@${account.username}` : activeDomain
+  const activeProjectRow = projects.find((project) => project.slug === activeProject)
+  const workspaceLabel = isUserWorkspace
+    ? activeProjectRow?.name || (activeProject === PROJECT_NONE ? "No project" : `@${account.username}`)
+    : activeDomain
 
   return (
     <aside className="sidebar">
@@ -152,10 +165,26 @@ export function Sidebar({
                       {workspaceMode === "platform" && domain === activeDomain ? <Check size={14} weight="bold" aria-hidden="true" /> : null}
                     </button>
                   ))}
-                  <button className={workspaceMode === "personal" ? "is-active" : ""} type="button" onClick={onSwitchToPersonal}>
-                    <span>{account.username ? `@${account.username}` : "Choose username"}</span>
-                    {workspaceMode === "personal" ? <Check size={14} weight="bold" aria-hidden="true" /> : null}
-                  </button>
+                  <div className="domain-menu-section">
+                    <span>{account.username ? `@${account.username}` : "Personal"}</span>
+                    <button className={workspaceMode === "personal" && activeProject === PROJECT_ALL ? "is-active" : ""} type="button" onClick={onSwitchToPersonal}>
+                      <span>All personal pages</span>
+                      {workspaceMode === "personal" && activeProject === PROJECT_ALL ? <Check size={14} weight="bold" aria-hidden="true" /> : null}
+                    </button>
+                    <button className={`project-menu-item ${workspaceMode === "personal" && activeProject === PROJECT_NONE ? "is-active" : ""}`} type="button" onClick={() => onSwitchProject(PROJECT_NONE)}>
+                      <span>No project</span>
+                      {workspaceMode === "personal" && activeProject === PROJECT_NONE ? <Check size={14} weight="bold" aria-hidden="true" /> : null}
+                    </button>
+                    {projects.map((project) => (
+                      <button className={`project-menu-item ${workspaceMode === "personal" && activeProject === project.slug ? "is-active" : ""}`} type="button" onClick={() => onSwitchProject(project.slug)} key={project.id}>
+                        <span>{project.name}</span>
+                        {workspaceMode === "personal" && activeProject === project.slug ? <Check size={14} weight="bold" aria-hidden="true" /> : null}
+                      </button>
+                    ))}
+                    <button className="project-menu-item" type="button" onClick={onCreateProject}>
+                      <span>Add project...</span>
+                    </button>
+                  </div>
                   {account.username ? <a href={`/${account.username}`} target="_blank" rel="noreferrer">View personal page</a> : null}
                   <button type="button" onClick={onSignOut}>Sign out</button>
                 </>
@@ -164,6 +193,26 @@ export function Sidebar({
                   <div className="account-menu-heading">
                     <strong>{account.displayName || account.username}</strong>
                     <small>{account.email}</small>
+                  </div>
+                  <div className="domain-menu-section">
+                    <span>@{account.username}</span>
+                    <button className={activeProject === PROJECT_ALL ? "is-active" : ""} type="button" onClick={() => onSwitchProject(PROJECT_ALL)}>
+                      <span>All personal pages</span>
+                      {activeProject === PROJECT_ALL ? <Check size={14} weight="bold" aria-hidden="true" /> : null}
+                    </button>
+                    <button className={`project-menu-item ${activeProject === PROJECT_NONE ? "is-active" : ""}`} type="button" onClick={() => onSwitchProject(PROJECT_NONE)}>
+                      <span>No project</span>
+                      {activeProject === PROJECT_NONE ? <Check size={14} weight="bold" aria-hidden="true" /> : null}
+                    </button>
+                    {projects.map((project) => (
+                      <button className={`project-menu-item ${activeProject === project.slug ? "is-active" : ""}`} type="button" onClick={() => onSwitchProject(project.slug)} key={project.id}>
+                        <span>{project.name}</span>
+                        {activeProject === project.slug ? <Check size={14} weight="bold" aria-hidden="true" /> : null}
+                      </button>
+                    ))}
+                    <button className="project-menu-item" type="button" onClick={onCreateProject}>
+                      <span>Add project...</span>
+                    </button>
                   </div>
                   <a href={`/${account.username}`} target="_blank" rel="noreferrer">View personal page</a>
                   <button type="button" onClick={onSignOut}>Sign out</button>
