@@ -398,7 +398,7 @@ function cleanStyleBlocks(html) {
 }
 
 function cleanHtmlInput(html) {
-  return cleanStyleBlocks(String(html || "").replace(/""/g, "\""))
+  return cleanStyleBlocks(String(html || ""))
 }
 
 function legacyMarkdownWrappedHtml(html) {
@@ -636,14 +636,16 @@ function contentToHtml(body) {
     typeof body.content === "string" ? body.content :
     ""
   )
-  const raw = (explicitHtml ?? explicitMarkdown ?? autoContent).replace(/\r\n?/g, "\n").trim()
+  const rawSource = explicitHtml ?? explicitMarkdown ?? autoContent
+  const normalizedRaw = rawSource.replace(/\r\n?/g, "\n").trim()
+  const markdownRaw = normalizedRaw
   const requestedSourceType = String(body.sourceType || body.source_type || "").toLowerCase()
 
-  if (!raw) {
+  if (!normalizedRaw) {
     return { html: "", title: "", source: "", sourceType: requestedSourceType === "auto" ? "auto" : "empty" }
   }
 
-  const redirect = redirectUrl(raw)
+  const redirect = redirectUrl(normalizedRaw)
 
   if (requestedSourceType === "iframe" && redirect) {
     return {
@@ -657,40 +659,38 @@ function contentToHtml(body) {
   if (requestedSourceType === "redirect" && redirect) {
     return {
       html: "",
-      title: body.title || raw,
+      title: body.title || normalizedRaw,
       source: redirect,
       sourceType: "redirect",
     }
   }
 
   if (requestedSourceType === "auto") {
-    if (looksLikeHtml(raw)) {
-      const html = cleanHtmlInput(raw)
-      return { html: htmlDocument(html), title: titleFromHtml(html), source: raw, sourceType: "auto" }
+    if (looksLikeHtml(normalizedRaw)) {
+      return { html: htmlDocument(rawSource), title: titleFromHtml(rawSource), source: rawSource, sourceType: "auto" }
     }
 
-    return { html: markdownDocument(raw), title: titleFromMarkdown(raw), source: raw, sourceType: "auto" }
+    return { html: markdownDocument(markdownRaw), title: titleFromMarkdown(markdownRaw), source: markdownRaw, sourceType: "auto" }
   }
 
   if (requestedSourceType === "markdown" || explicitMarkdown !== null) {
-    return { html: markdownDocument(raw), title: titleFromMarkdown(raw), source: raw, sourceType: "markdown" }
+    return { html: markdownDocument(markdownRaw), title: titleFromMarkdown(markdownRaw), source: markdownRaw, sourceType: "markdown" }
   }
 
-  if (requestedSourceType === "html" || explicitHtml !== null || looksLikeHtml(raw)) {
-    const html = cleanHtmlInput(raw)
-    return { html: htmlDocument(html), title: titleFromHtml(html), source: raw, sourceType: "html" }
+  if (requestedSourceType === "html" || explicitHtml !== null || looksLikeHtml(normalizedRaw)) {
+    return { html: htmlDocument(rawSource), title: titleFromHtml(rawSource), source: rawSource, sourceType: "html" }
   }
 
   if (redirect) {
     return {
       html: "",
-      title: body.title || raw,
+      title: body.title || normalizedRaw,
       source: redirect,
       sourceType: "redirect",
     }
   }
 
-  return { html: markdownDocument(raw), title: titleFromMarkdown(raw), source: raw, sourceType: "markdown" }
+  return { html: markdownDocument(markdownRaw), title: titleFromMarkdown(markdownRaw), source: markdownRaw, sourceType: "markdown" }
 }
 
 function normalizeRoutePath(path) {
@@ -1682,18 +1682,20 @@ async function renderPageRow(row, env) {
     return redirectResponse(redirectUrl(row.source) || row.source)
   }
 
-  const html = cleanHtmlInput(legacyMarkdownWrappedHtml(row.markdown || ""))
   const sourceType = (row.source_type || "").toLowerCase()
-  const pageHtml = (sourceType === "markdown" || (sourceType === "auto" && !looksLikeHtml(row.source)))
-    ? withMarkdownLinkStyle(html)
-    : html
+  const rawSource = row.source || ""
+  const isRawHtml = sourceType === "html" || (sourceType === "auto" && looksLikeHtml(rawSource))
+  const storedHtml = legacyMarkdownWrappedHtml(row.markdown || "")
+  const pageDocument = isRawHtml
+    ? htmlDocument(rawSource || storedHtml)
+    : withMarkdownLinkStyle(htmlDocument(cleanHtmlInput(storedHtml)))
 
   const domain = normalizeDomain(row.domain)
   const iconVersion = row.favicon_url
     ? row.updated_at || row.favicon_url
     : (await getDomainSettings(env, domain)).updatedAt || ""
 
-  return new Response(withPageMetadata(htmlDocument(pageHtml), {
+  return new Response(withPageMetadata(pageDocument, {
     title: calculatedPageTitle(row),
     domain,
     pageId: row.id,

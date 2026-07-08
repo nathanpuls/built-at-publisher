@@ -93,7 +93,7 @@ export function renderSource(source, type = detectSource(source)) {
 }
 
 function cleanHtmlInput(source) {
-  return String(source || "").replace(/""/g, "\"")
+  return String(source || "")
 }
 
 export function previewDocument(source, baseUrl = "") {
