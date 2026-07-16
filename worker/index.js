@@ -808,6 +808,43 @@ function pageRowToResponse(row) {
   }
 }
 
+async function recentPageFavicons(env, pageId) {
+  if (!env.DB || !pageId) return []
+
+  const history = await env.DB.prepare(
+    `SELECT favicon_url AS faviconUrl, created_at AS createdAt
+     FROM page_favicon_history
+     WHERE page_id = ?
+     ORDER BY created_at DESC, id DESC
+     LIMIT 5`
+  ).bind(pageId).all()
+
+  return history.results || []
+}
+
+async function recordPageFaviconHistory(env, pageId, faviconUrl, now) {
+  if (!env.DB || !pageId || !faviconUrl) return
+
+  await env.DB.prepare(
+    `INSERT INTO page_favicon_history (page_id, favicon_url, created_at)
+     SELECT ?, ?, ?
+     WHERE NOT EXISTS (
+       SELECT 1 FROM page_favicon_history
+       WHERE page_id = ? AND favicon_url = ?
+     )`
+  ).bind(pageId, faviconUrl, now, pageId, faviconUrl).run()
+
+  await env.DB.prepare(
+    `DELETE FROM page_favicon_history
+     WHERE page_id = ? AND id NOT IN (
+       SELECT id FROM page_favicon_history
+       WHERE page_id = ?
+       ORDER BY created_at DESC, id DESC
+       LIMIT 5
+     )`
+  ).bind(pageId, pageId).run()
+}
+
 async function pageById(env, id, { deleted = false } = {}) {
   return env.DB.prepare(
     `SELECT pages.*, users.username, projects.slug AS project_slug, projects.name AS project_name
@@ -912,8 +949,15 @@ async function savePageData(body, env, publish = false) {
     .bind(id, slug, title, hash, html, docJson, status, createdAt, now, publishedAt, source, sourceType, path, domain, faviconUrl, titleMode, storedOwnerId, storedNamespace, storedProjectId)
     .run()
 
+  if (faviconUrl) {
+    await recordPageFaviconHistory(env, id, faviconUrl, now)
+  }
+
   const row = await pageById(env, id)
-  return pageRowToResponse(row)
+  return {
+    ...pageRowToResponse(row),
+    recentFavicons: await recentPageFavicons(env, id),
+  }
 }
 
 async function savePage(request, env, publish = false, user = null) {
@@ -1371,8 +1415,15 @@ async function updatePage(request, env, id, user = null) {
     )
     .run()
 
+  if (faviconUrl) {
+    await recordPageFaviconHistory(env, id, faviconUrl, now)
+  }
+
   const row = await pageById(env, id)
-  return json(pageRowToResponse(row))
+  return json({
+    ...pageRowToResponse(row),
+    recentFavicons: await recentPageFavicons(env, id),
+  })
 }
 
 async function deletePage(env, id, user = null) {
@@ -1898,8 +1949,30 @@ async function listPages(env, domain = DEFAULT_DOMAIN, user = null, personalWork
     ).bind(normalizeDomain(domain)).all()
   }
 
+  const rows = result.results || []
+  const pageIds = rows.map((page) => page.id).filter(Boolean)
+  const recentFaviconsByPage = new Map()
+
+  if (pageIds.length) {
+    const placeholders = pageIds.map(() => "?").join(",")
+    const history = await env.DB.prepare(
+      `SELECT page_id AS pageId, favicon_url AS faviconUrl, created_at AS createdAt
+       FROM page_favicon_history
+       WHERE page_id IN (${placeholders})
+       ORDER BY page_id, created_at DESC, id DESC`
+    ).bind(...pageIds).all()
+
+    for (const favicon of history.results || []) {
+      const group = recentFaviconsByPage.get(favicon.pageId) || []
+      if (group.length < 5) {
+        group.push({ faviconUrl: favicon.faviconUrl, createdAt: favicon.createdAt })
+        recentFaviconsByPage.set(favicon.pageId, group)
+      }
+    }
+  }
+
   return json({
-    pages: (result.results || []).map(({ markdown, ...page }) => ({
+    pages: rows.map(({ markdown, ...page }) => ({
       ...page,
       source: page.source || legacyMarkdownWrappedHtml(markdown || ""),
       sourceType: page.source_type || "html",
@@ -1914,6 +1987,7 @@ async function listPages(env, domain = DEFAULT_DOMAIN, user = null, personalWork
       projectName: page.project_name || "",
       isHome: Boolean(page.is_home),
       faviconUrl: page.favicon_url || "",
+      recentFavicons: recentFaviconsByPage.get(page.id) || [],
       url: pagePublicPath(page),
       fallbackUrl: `/p/${page.id}${page.slug ? `/${page.slug}` : ""}`,
     })),

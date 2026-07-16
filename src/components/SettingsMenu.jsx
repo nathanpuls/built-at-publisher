@@ -129,6 +129,25 @@ export function SettingsMenu({
                 />
                 <button type="button" onClick={() => onSavePageFaviconUrl(pageFaviconUrlDraft)}>Apply</button>
               </div>
+              {page.recentFavicons?.length ? (
+                <div className="recent-favicons">
+                  <span>Recent</span>
+                  <div>
+                    {page.recentFavicons.map((favicon) => (
+                      <button
+                        className={favicon.faviconUrl === page.faviconUrl ? "is-current" : ""}
+                        type="button"
+                        onClick={() => onSavePageFaviconUrl(favicon.faviconUrl)}
+                        aria-label="Use recent page icon"
+                        title={favicon.faviconUrl}
+                        key={`${favicon.faviconUrl}-${favicon.createdAt}`}
+                      >
+                        <img src={favicon.faviconUrl} alt="" />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
               {page.faviconUrl ? <button className="reset-page-icon" type="button" onClick={onResetPageFavicon}>Reset to site default</button> : null}
             </section>
           ) : null}
