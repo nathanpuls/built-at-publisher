@@ -26,8 +26,55 @@ import {
 } from "./lib/pages"
 
 const COLLAPSED_FOLDERS_KEY = "built-routes:collapsed-folders:v1"
+const LAST_ADMIN_PLACE_KEY = "built-routes:last-admin-place:v1"
 const CURRENT_BUILD_ASSET = document.querySelector('script[type="module"][src]')?.getAttribute("src") || ""
 const DELETE_UNDO_DURATION_MS = 10000
+
+function hasExplicitAdminTarget(params) {
+  return ["domain", "workspace", "project", "path", "id"].some((key) => params.has(key))
+}
+
+function readLastAdminPlace() {
+  try {
+    const place = JSON.parse(localStorage.getItem(LAST_ADMIN_PLACE_KEY) || "null")
+    if (!place || typeof place !== "object") return null
+    if (place.domain && !EDITABLE_DOMAINS.includes(place.domain)) return null
+    return place
+  } catch {
+    return null
+  }
+}
+
+function writeLastAdminPlace(page) {
+  if (!page) return
+
+  try {
+    localStorage.setItem(LAST_ADMIN_PLACE_KEY, JSON.stringify({
+      domain: page.domain || DEFAULT_DOMAIN,
+      workspace: page.namespace === "user" ? "personal" : "platform",
+      project: page.namespace === "user" ? page.projectSlug || PROJECT_ALL : PROJECT_ALL,
+      path: displayPath(page.path || ""),
+      id: page.id || "",
+    }))
+  } catch {
+    // Browsers can block localStorage in private contexts; the editor should still work.
+  }
+}
+
+function restoredAdminParams(initialParams) {
+  if (hasExplicitAdminTarget(initialParams)) return initialParams
+
+  const place = readLastAdminPlace()
+  if (!place) return initialParams
+
+  const params = new URLSearchParams()
+  if (place.domain && place.domain !== DEFAULT_DOMAIN) params.set("domain", place.domain)
+  if (place.workspace === "personal") params.set("workspace", "personal")
+  if (place.workspace === "personal" && place.project && place.project !== PROJECT_ALL) params.set("project", place.project)
+  if (place.path) params.set("path", place.path)
+  else if (place.id) params.set("id", place.id)
+  return params
+}
 
 function readCollapsedFolders() {
   try {
@@ -85,7 +132,11 @@ async function readJsonResponse(response) {
 }
 
 export default function App() {
-  const initialParams = new URLSearchParams(window.location.search)
+  const browserParams = new URLSearchParams(window.location.search)
+  const initialParams = restoredAdminParams(browserParams)
+  if (!hasExplicitAdminTarget(browserParams) && initialParams.toString()) {
+    window.history.replaceState({}, "", `/admin?${initialParams}`)
+  }
   const initialDomain = initialParams.get("domain") || DEFAULT_DOMAIN
   const [activeDomain, setActiveDomain] = useState(EDITABLE_DOMAINS.includes(initialDomain) ? initialDomain : DEFAULT_DOMAIN)
   const [account, setAccount] = useState(null)
@@ -344,6 +395,7 @@ export default function App() {
     } else {
       window.history.replaceState({}, "", adminUrlForPage(page))
     }
+    writeLastAdminPlace(page)
 
     if (focusPathAfterSelect.current) {
       focusPathAfterSelect.current = false
