@@ -171,6 +171,7 @@ export default function App() {
   const [isTrashLoading, setIsTrashLoading] = useState(false)
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false)
   const [trashPages, setTrashPages] = useState([])
+  const [pagesRefreshToken, setPagesRefreshToken] = useState(0)
   const saveTimer = useRef(null)
   const pendingSave = useRef(null)
   const unsavedChangesRef = useRef(false)
@@ -300,7 +301,7 @@ export default function App() {
     return () => {
       cancelled = true
     }
-  }, [activeDomain, activeProject, authLoaded, isPersonalWorkspace])
+  }, [activeDomain, activeProject, authLoaded, isPersonalWorkspace, pagesRefreshToken])
 
   useEffect(() => {
     let cancelled = false
@@ -630,6 +631,9 @@ export default function App() {
         if (/already used|reserved path|finish the path/i.test(message)) {
           setPathError(message)
           setError("")
+          if (/already used/i.test(message)) {
+            setPagesRefreshToken((current) => current + 1)
+          }
         } else {
           setError(message)
         }
