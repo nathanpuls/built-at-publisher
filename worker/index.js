@@ -1843,6 +1843,35 @@ function renderRawPageRow(row, request) {
   return new Response(row.source || row.markdown || "", { headers })
 }
 
+function robotsResponse() {
+  return new Response([
+    "User-agent: *",
+    "Allow: /",
+    "Allow: /raw/",
+    "Disallow: /admin",
+    "Disallow: /api/",
+    "Content-Signal: search=yes,ai-input=yes,ai-train=no,use=reference",
+    "",
+    "User-agent: Google-Extended",
+    "Allow: /raw/",
+    "Disallow: /admin",
+    "Disallow: /api/",
+    "Content-Signal: search=yes,ai-input=yes,ai-train=no,use=reference",
+    "",
+    "User-agent: GPTBot",
+    "Allow: /raw/",
+    "Disallow: /admin",
+    "Disallow: /api/",
+    "Content-Signal: search=yes,ai-input=yes,ai-train=no,use=reference",
+    "",
+  ].join("\n"), {
+    headers: {
+      "content-type": "text/plain; charset=utf-8",
+      "cache-control": "public, max-age=300, must-revalidate",
+    },
+  })
+}
+
 async function findPlatformPageByPath(env, domain, path) {
   return env.DB.prepare(
     `SELECT pages.*, users.username
@@ -2164,6 +2193,10 @@ export default {
 
     if (request.method === "OPTIONS") {
       return new Response(null, { status: 204 })
+    }
+
+    if (url.pathname === "/robots.txt" && (request.method === "GET" || request.method === "HEAD")) {
+      return robotsResponse()
     }
 
     if (url.pathname === "/api/health") {
