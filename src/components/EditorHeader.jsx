@@ -23,6 +23,7 @@ export function EditorHeader({
   onCloseDomainMenu,
   onCopyPermanentUrl,
   onCopyPublicUrl,
+  onCopyRawUrl,
   onResetPageFavicon,
   onSaveFaviconUrl,
   onSavePageFaviconUrl,
@@ -38,6 +39,7 @@ export function EditorHeader({
   pathError,
   pathInputRef,
   permanentCopyStatus,
+  rawCopyStatus,
   selectedPage,
   settingsMenuRef,
   status,
@@ -114,8 +116,8 @@ export function EditorHeader({
           pageFaviconUrlDraft={pageFaviconUrlDraft}
         />
         <div className="copy-url-control" ref={copyMenuRef}>
-          <button className={`button copy-action ${copyStatus || permanentCopyStatus ? "is-copied" : ""}`} type="button" onClick={onCopyPublicUrl} aria-keyshortcuts="u">
-            {copyStatus || permanentCopyStatus ? "Copied" : "Copy URL"}
+          <button className={`button copy-action ${copyStatus || permanentCopyStatus || rawCopyStatus ? "is-copied" : ""}`} type="button" onClick={onCopyPublicUrl} aria-keyshortcuts="u">
+            {copyStatus || permanentCopyStatus || rawCopyStatus ? "Copied" : "Copy URL"}
           </button>
           <button
             className="copy-menu-trigger"
@@ -135,6 +137,12 @@ export function EditorHeader({
               <button type="button" onClick={onCopyPublicUrl}>
                 <span>Copy public URL</span>
                 {copyStatus ? (
+                  <Check size={16} weight="bold" aria-hidden="true" />
+                ) : null}
+              </button>
+              <button type="button" onClick={onCopyRawUrl}>
+                <span>Copy raw URL</span>
+                {rawCopyStatus ? (
                   <Check size={16} weight="bold" aria-hidden="true" />
                 ) : null}
               </button>

@@ -61,7 +61,7 @@ export function publicPath(page) {
     return page.path && page.path !== "/" ? `${projectRoot}${page.path}` : projectRoot
   }
 
-  if (page.path) return `/p${page.path}`
+  if (page.path) return page.path
   return fallbackPath(page)
 }
 
@@ -72,6 +72,19 @@ export function publicUrl(page) {
 
 export function permanentPath(page) {
   return `p/${page?.id || "unknown"}`
+}
+
+export function rawPath(page) {
+  if (!page) return "/raw"
+  const path = page.path || publicPath(page)
+  if (!path || path === "/") return `/raw/${page.id || "unknown"}`
+  if (path.startsWith("/p/")) return `/raw/${page.id || "unknown"}`
+  return `/raw${path.startsWith("/") ? path : `/${path}`}`
+}
+
+export function rawUrl(page) {
+  const domain = page?.domain || DEFAULT_DOMAIN
+  return `https://${domain}${rawPath(page)}`
 }
 
 export function makePageId() {

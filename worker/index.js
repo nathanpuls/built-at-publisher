@@ -26,7 +26,7 @@ const BUILT_PUBLIC_API_PATHS = new Set([
   "/api/icon.ico",
   "/api/manifest",
 ])
-const RESERVED_USERNAMES = new Set(["admin", "api", "assets", "p", "signup"])
+const RESERVED_USERNAMES = new Set(["admin", "api", "assets", "p", "raw", "signup"])
 const DEFAULT_FONT_STYLE = '<style data-built-default-font>html { font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }</style>'
 const MARKDOWN_LINK_STYLE = '<style data-built-markdown-links>a { color: #111827; text-decoration: underline; text-decoration-color: #6b7280; text-underline-offset: 0.25em; }</style>'
 
@@ -183,7 +183,7 @@ function pagePublicPath(row) {
     return `/${row.username}${projectPrefix}${path && path !== "/" ? path : ""}`
   }
 
-  return path ? `/p${path}` : `/p/${row.id}${row.slug ? `/${row.slug}` : ""}`
+  return path || `/p/${row.id}${row.slug ? `/${row.slug}` : ""}`
 }
 
 function requestDomain(request) {
@@ -731,7 +731,7 @@ function storedTitleMode(row) {
 
 function reservedRoutePath(path) {
   const segment = displayRoutePath(path).split("/")[0]
-  return ["admin", "api", "assets", "p"].includes(segment)
+  return ["admin", "api", "assets", "p", "raw"].includes(segment)
 }
 
 function isLocalRequest(request) {
@@ -1728,6 +1728,62 @@ async function renderUserPath(usernameValue, pathname, env) {
   return projectRow ? renderPageRow(projectRow, env) : null
 }
 
+async function findUserPageByPath(usernameValue, pathname, env) {
+  const username = normalizeUsername(usernameValue)
+  if (!username) return null
+
+  const user = await env.DB.prepare(
+    "SELECT id, username FROM users WHERE username = ? LIMIT 1"
+  ).bind(username).first()
+  if (!user) return null
+
+  const path = normalizeRoutePath(pathname)
+  const row = path
+    ? await env.DB.prepare(
+      `SELECT pages.*, users.username, projects.slug AS project_slug, projects.name AS project_name
+       FROM pages
+       JOIN users ON users.id = pages.owner_id
+       LEFT JOIN projects ON projects.id = pages.project_id
+       WHERE pages.domain = ? AND pages.namespace = 'user'
+         AND pages.owner_id = ? AND pages.project_id = '' AND pages.path = ? AND pages.deleted_at IS NULL
+       LIMIT 1`
+    ).bind(DEFAULT_DOMAIN, user.id, path).first()
+    : await env.DB.prepare(
+      `SELECT pages.*, users.username, projects.slug AS project_slug, projects.name AS project_name
+       FROM pages
+       JOIN users ON users.id = pages.owner_id
+       LEFT JOIN projects ON projects.id = pages.project_id
+       WHERE pages.domain = ? AND pages.namespace = 'user'
+         AND pages.owner_id = ? AND pages.project_id = '' AND pages.is_home = 1 AND pages.deleted_at IS NULL
+       ORDER BY pages.updated_at DESC
+       LIMIT 1`
+    ).bind(DEFAULT_DOMAIN, user.id).first()
+
+  if (row) return row
+  if (!path) return null
+
+  const segments = displayRoutePath(path).split("/").filter(Boolean)
+  const projectSlug = segments[0] || ""
+  const project = await env.DB.prepare(
+    "SELECT * FROM projects WHERE owner_id = ? AND slug = ? LIMIT 1"
+  ).bind(user.id, projectSlug).first()
+
+  if (!project) return null
+
+  const projectPath = normalizeRoutePath(segments.slice(1).join("/"))
+  if (!projectPath) return null
+
+  return env.DB.prepare(
+    `SELECT pages.*, users.username, projects.slug AS project_slug, projects.name AS project_name
+     FROM pages
+     JOIN users ON users.id = pages.owner_id
+     JOIN projects ON projects.id = pages.project_id
+     WHERE pages.domain = ? AND pages.namespace = 'user'
+       AND pages.owner_id = ? AND pages.project_id = ? AND pages.path = ? AND pages.deleted_at IS NULL
+     LIMIT 1`
+  ).bind(DEFAULT_DOMAIN, user.id, project.id, projectPath).first()
+}
+
 async function renderPageRow(row, env) {
   if ((row.source_type || "").toLowerCase() === "redirect") {
     return redirectResponse(redirectUrl(row.source) || row.source)
@@ -1754,6 +1810,88 @@ async function renderPageRow(row, env) {
   }), {
     headers: {
       "content-type": "text/html; charset=utf-8",
+      "cache-control": "public, max-age=5, must-revalidate",
+    },
+  })
+}
+
+function rawContentType(row) {
+  const sourceType = (row.source_type || "").toLowerCase()
+  const source = row.source || row.markdown || ""
+
+  if (sourceType === "html" || (sourceType === "auto" && looksLikeHtml(source))) {
+    return "text/html; charset=utf-8"
+  }
+
+  if (sourceType === "markdown" || sourceType === "auto") {
+    return "text/markdown; charset=utf-8"
+  }
+
+  return "text/plain; charset=utf-8"
+}
+
+function renderRawPageRow(row, request) {
+  const headers = {
+    "content-type": rawContentType(row),
+    "cache-control": "public, max-age=5, must-revalidate",
+  }
+
+  if (request.method === "HEAD") {
+    return new Response(null, { headers })
+  }
+
+  return new Response(row.source || row.markdown || "", { headers })
+}
+
+async function findPlatformPageByPath(env, domain, path) {
+  return env.DB.prepare(
+    `SELECT pages.*, users.username
+     FROM pages
+     LEFT JOIN users ON users.id = pages.owner_id
+     WHERE pages.domain = ? AND pages.namespace = 'platform'
+       AND pages.path = ? AND pages.deleted_at IS NULL
+     LIMIT 1`
+  ).bind(normalizeDomain(domain), path).first()
+}
+
+async function renderRawRoutePath(pathname, request, env, domain = DEFAULT_DOMAIN) {
+  if (!env.DB) {
+    return new Response("DB binding is not configured.", { status: 500 })
+  }
+
+  const path = normalizeRoutePath(pathname)
+  const row = path
+    ? await findPlatformPageByPath(env, domain, path)
+    : await env.DB.prepare(
+      `SELECT pages.*, users.username
+       FROM pages
+       LEFT JOIN users ON users.id = pages.owner_id
+       WHERE pages.domain = ? AND pages.namespace = 'platform'
+         AND pages.is_home = 1 AND pages.deleted_at IS NULL
+       ORDER BY pages.updated_at DESC
+       LIMIT 1`
+    ).bind(normalizeDomain(domain)).first()
+
+  if (row) return renderRawPageRow(row, request)
+
+  if (normalizeDomain(domain) === DEFAULT_DOMAIN && path) {
+    const [, username = "", userPath = ""] = path.match(/^\/([^/]+)(?:\/(.*))?$/) || []
+    const userRow = await findUserPageByPath(username, userPath ? `/${userPath}` : "", env)
+    if (userRow) return renderRawPageRow(userRow, request)
+  }
+
+  const rawId = singlePathSegment(path)
+  if (rawId) {
+    const idRow = await pageById(env, rawId)
+    if (idRow && normalizeDomain(idRow.domain) === normalizeDomain(domain)) {
+      return renderRawPageRow(idRow, request)
+    }
+  }
+
+  return new Response("Raw source was not found.", {
+    status: 404,
+    headers: {
+      "content-type": "text/plain; charset=utf-8",
       "cache-control": "public, max-age=5, must-revalidate",
     },
   })
@@ -2199,6 +2337,14 @@ export default {
 
     if (docMatch && request.method === "GET") {
       return getPage(docMatch[1], env)
+    }
+
+    if (
+      (url.pathname === "/raw" || url.pathname.startsWith("/raw/")) &&
+      (request.method === "GET" || request.method === "HEAD")
+    ) {
+      const rawPath = url.pathname.replace(/^\/raw\/?/, "")
+      return renderRawRoutePath(rawPath ? `/${rawPath}` : "/", request, env, domain)
     }
 
     const publicPageMatch = url.pathname.match(/^\/p\/([A-Za-z0-9_-]+)(?:\/.*)?$/)

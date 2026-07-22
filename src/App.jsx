@@ -19,6 +19,7 @@ import {
   pageTimestamp,
   permanentPath,
   publicUrl,
+  rawUrl,
   selectPageFromUrl,
   sortPagesNewestFirst,
   titleFromPath,
@@ -159,6 +160,7 @@ export default function App() {
   const [status, setStatus] = useState("")
   const [copyStatus, setCopyStatus] = useState("")
   const [permanentCopyStatus, setPermanentCopyStatus] = useState("")
+  const [rawCopyStatus, setRawCopyStatus] = useState("")
   const [sourceCopyStatus, setSourceCopyStatus] = useState("")
   const [sourcePasteStatus, setSourcePasteStatus] = useState("")
   const [homeStatus, setHomeStatus] = useState("")
@@ -921,6 +923,12 @@ export default function App() {
     copyText(new URL(`/${permanentPath(selectedPage)}`, window.location.origin).href, setPermanentCopyStatus)
   }
 
+  function copyRawUrl() {
+    if (!selectedPage) return
+    setIsCopyMenuOpen(false)
+    copyText(rawUrl(selectedPage), setRawCopyStatus)
+  }
+
   function copySource() {
     copyText(draft.source, setSourceCopyStatus)
   }
@@ -1428,6 +1436,7 @@ export default function App() {
             onCloseDomainMenu={() => setIsDomainMenuOpen(false)}
             onCopyPermanentUrl={copyPermanentUrl}
             onCopyPublicUrl={copyPublicUrl}
+            onCopyRawUrl={copyRawUrl}
             onResetPageFavicon={() => savePageFaviconUrl("")}
             onSaveFaviconUrl={saveFaviconUrl}
             onSavePageFaviconUrl={savePageFaviconUrl}
@@ -1444,6 +1453,7 @@ export default function App() {
             pathError={pathError}
             pathInputRef={pathInputRef}
             permanentCopyStatus={permanentCopyStatus}
+            rawCopyStatus={rawCopyStatus}
             selectedPage={selectedPage}
             settingsMenuRef={settingsMenuRef}
             status={status}
