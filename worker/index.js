@@ -1816,18 +1816,23 @@ async function renderPageRow(row, env) {
 }
 
 function rawContentType(row) {
-  const sourceType = (row.source_type || "").toLowerCase()
-  const source = row.source || row.markdown || ""
+  return "text/html; charset=utf-8"
+}
 
-  if (sourceType === "html" || (sourceType === "auto" && looksLikeHtml(source))) {
-    return "text/html; charset=utf-8"
-  }
-
-  if (sourceType === "markdown" || sourceType === "auto") {
-    return "text/markdown; charset=utf-8"
-  }
-
-  return "text/plain; charset=utf-8"
+function rawSourceDocument(source) {
+  return `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Raw source</title>
+<style>
+html,body{margin:0;background:white;color:#111827}
+pre{margin:0;padding:16px;font:16px/1.5 ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;white-space:pre-wrap;word-break:break-word}
+</style>
+</head>
+<body><pre>${escapeHtml(source)}</pre></body>
+</html>`
 }
 
 function renderRawPageRow(row, request) {
@@ -1840,7 +1845,7 @@ function renderRawPageRow(row, request) {
     return new Response(null, { headers })
   }
 
-  return new Response(row.source || row.markdown || "", { headers })
+  return new Response(rawSourceDocument(row.source || row.markdown || ""), { headers })
 }
 
 function robotsResponse() {
