@@ -2168,7 +2168,7 @@ async function listPages(env, domain = DEFAULT_DOMAIN, user = null, personalWork
 
 export default {
   async fetch(request, env) {
-    const url = new URL(request.url)
+    let url = new URL(request.url)
     const httpsUpgrade = httpsUpgradeResponse(request, url)
 
     if (httpsUpgrade) {
@@ -2177,6 +2177,17 @@ export default {
 
     if (url.hostname === "admin.built.at") {
       return redirectResponse(`https://built.at/admin${url.search}`)
+    }
+
+    if (url.hostname === "built.at" && url.pathname === "/" && (request.method === "GET" || request.method === "HEAD")) {
+      return redirectResponse(`https://voice.built.at/${url.search}`)
+    }
+
+    if (url.hostname === "hand.built.at") {
+      url = new URL(request.url)
+      url.hostname = "built.at"
+      url.pathname = url.pathname === "/" ? "/hand" : `/hand${url.pathname}`
+      request = new Request(url, request)
     }
 
     const subdomainRedirect = mappedSubdomainRedirect(url.hostname, url.pathname, url.search)
