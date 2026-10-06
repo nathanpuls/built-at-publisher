@@ -2186,7 +2186,6 @@ export default {
     if (url.hostname === "hand.built.at") {
       url = new URL(request.url)
       url.hostname = "built.at"
-      url.pathname = url.pathname === "/" ? "/hand" : `/hand${url.pathname}`
       request = new Request(url, request)
     }
 
