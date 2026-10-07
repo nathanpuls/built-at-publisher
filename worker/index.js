@@ -2238,6 +2238,16 @@ export default {
       return redirectResponse(`${EDITOR_ORIGIN}/admin${url.search}`)
     }
 
+    const isTrustedAppPath =
+      url.pathname === "/signup" ||
+      url.pathname.startsWith("/admin") ||
+      url.pathname.startsWith("/api/auth/") ||
+      url.pathname === "/api/system/signup"
+
+    if (url.hostname === "host.built.at" && isTrustedAppPath) {
+      return redirectResponse(`${EDITOR_ORIGIN}${url.pathname}${url.search}`)
+    }
+
     if (url.hostname === "host.built.at") {
       url = new URL(request.url)
       url.hostname = "built.at"
