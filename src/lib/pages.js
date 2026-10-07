@@ -5,6 +5,7 @@ export const SIGN_IN_PAGE_ID = "builtSignup"
 export const CHOOSE_USERNAME_PAGE_ID = "builtChooseUsername"
 export const PROJECT_ALL = "all"
 export const PROJECT_NONE = "none"
+const LEGACY_PUBLIC_ORIGIN = "https://host.built.at"
 
 export function normalizePath(path) {
   const trimmed = String(path || "").trim()
@@ -67,7 +68,8 @@ export function publicPath(page) {
 
 export function publicUrl(page) {
   const domain = page?.domain || DEFAULT_DOMAIN
-  return `https://${domain}${publicPath(page)}`
+  const origin = domain === DEFAULT_DOMAIN ? LEGACY_PUBLIC_ORIGIN : `https://${domain}`
+  return `${origin}${publicPath(page)}`
 }
 
 export function permanentPath(page) {
@@ -84,7 +86,8 @@ export function rawPath(page) {
 
 export function rawUrl(page) {
   const domain = page?.domain || DEFAULT_DOMAIN
-  return `https://${domain}${rawPath(page)}`
+  const origin = domain === DEFAULT_DOMAIN ? LEGACY_PUBLIC_ORIGIN : `https://${domain}`
+  return `${origin}${rawPath(page)}`
 }
 
 export function makePageId() {

@@ -1,6 +1,14 @@
 # Clipboard Publisher
 
-A small clipboard publisher. Paste HTML, Markdown, or plain text into the app or send it from iOS Shortcuts; the shared `/p/...` URL renders as a normal browser page.
+A small clipboard publisher and the trusted Built editor. Paste HTML, Markdown, or plain text into the app or send it from iOS Shortcuts; legacy published content now lives on `host.built.at`.
+
+## Domain architecture
+
+- `https://www.built.at` is the trusted marketing, signup, authentication, and editor origin.
+- `https://host.built.at` preserves this Worker's previous hosting behavior and its existing Built-owned Pages.
+- `https://built.at/<username>` is the separate untrusted conversational publishing origin and is not served by this Worker.
+- `nathanpuls.com`, `fullpsych.com`, and the other configured custom-domain routes retain their existing domain-specific behavior.
+- Authentication cookies are host-only. HTML previews use a sandboxed opaque origin and user-generated HTML is not rendered directly on `www.built.at`.
 
 ## Local development
 
@@ -45,9 +53,9 @@ Pages are stored in D1 using the existing `pages` table. The legacy `markdown` c
   `built.at` and `nathanpuls.com`.
 - Pages also carry an owner and namespace. Existing pages belong to the
   Built.at owner and remain available at their legacy URLs.
-- Built.at-owned named pages publish at `/p/{path}`.
-- Permanent page references continue to publish at `/p/{id}`.
-- User pages publish at `/{username}` and `/{username}/{path}`.
+- Built.at-owned named pages publish on `host.built.at` at `/p/{path}`.
+- Permanent page references continue to publish on `host.built.at` at `/p/{id}`.
+- This legacy editor's user pages publish on `host.built.at` at `/{username}` and `/{username}/{path}`.
 - Page modes are Markdown, HTML, redirect, and full-page iframe.
 - Page titles are edited independently from source content and become the
   rendered browser title.
@@ -60,13 +68,13 @@ Pages are stored in D1 using the existing `pages` table. The legacy `markdown` c
 
 ## Account setup
 
-The signup flow lives at `https://built.at/signup`. It uses Google OAuth, then asks a new
+The signup flow lives at `https://www.built.at/signup`. It uses Google OAuth, then asks a new
 user to choose a unique username before opening the editor.
 
 Configure a Google OAuth web application with this production redirect URI:
 
 ```text
-https://built.at/api/auth/callback
+https://www.built.at/api/auth/callback
 ```
 
 Set the Worker secrets:

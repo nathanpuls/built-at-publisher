@@ -115,7 +115,7 @@ export function EditorWorkspace({
               key={`html-preview-${selectedPage.id}`}
               className="html-preview"
               title="HTML preview"
-              sandbox="allow-forms allow-modals allow-popups allow-popups-to-escape-sandbox allow-same-origin allow-scripts"
+              sandbox="allow-forms allow-modals allow-popups allow-popups-to-escape-sandbox allow-scripts"
               srcDoc={previewDocument(draft.source, publicUrl(selectedPage))}
             />
           ) : (

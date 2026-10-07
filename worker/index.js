@@ -10,7 +10,11 @@ const EMPTY_DOC_JSON = JSON.stringify({
 })
 const PUBLIC_ID_ALPHABET = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 const FAVICON_LINK = '<link rel="icon" type="image/svg+xml" href="/favicon-v2.svg">'
-const EDITOR_ORIGIN = "https://built.at"
+const EDITOR_ORIGIN = "https://www.built.at"
+const LEGACY_PUBLIC_ORIGIN = "https://host.built.at"
+const USER_PAGES_ORIGIN = "https://built.at"
+const TRUSTED_HOSTNAME = "www.built.at"
+const TRUSTED_HOME_PAGE_ID = "builtHome"
 const DEFAULT_DOMAIN = "built.at"
 const PLATFORM_OWNER_ID = "built-at-owner"
 const SIGN_IN_PAGE_ID = "builtSignup"
@@ -241,6 +245,12 @@ function projectRowToResponse(row) {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }
+}
+
+function publicOriginForDomain(domain = DEFAULT_DOMAIN) {
+  return normalizeDomain(domain) === DEFAULT_DOMAIN
+    ? LEGACY_PUBLIC_ORIGIN
+    : `https://${normalizeDomain(domain)}`
 }
 
 const {
@@ -590,7 +600,7 @@ function mappedSubdomainRedirect(hostname, pathname = "/", search = "") {
     if (!normalizedHostname.endsWith(`.${domain}`)) continue
 
     const subdomain = normalizedHostname.slice(0, -(domain.length + 1))
-    if (!subdomain || subdomain === "www") return ""
+    if (!subdomain || ["admin", "host", "mcp", "www"].includes(subdomain)) return ""
 
     const mappedPath = subdomain
       .split(".")
@@ -601,7 +611,8 @@ function mappedSubdomainRedirect(hostname, pathname = "/", search = "") {
     if (!mappedPath) return ""
 
     const restPath = pathname === "/" ? "" : pathname
-    return `https://${domain}/${mappedPath}${restPath}${search}`
+    const origin = domain === DEFAULT_DOMAIN ? LEGACY_PUBLIC_ORIGIN : `https://${domain}`
+    return `${origin}/${mappedPath}${restPath}${search}`
   }
 
   return ""
@@ -889,6 +900,13 @@ async function savePageData(body, env, publish = false) {
   const requestedId = typeof body.id === "string" && body.id.trim() ? body.id.trim() : null
   let id = requestedId
 
+  if (requestedId === TRUSTED_HOME_PAGE_ID) {
+    throw new Response(JSON.stringify({ error: "The trusted Built.at homepage is deployment-managed." }), {
+      status: 403,
+      headers: { "content-type": "application/json; charset=utf-8" },
+    })
+  }
+
   if (!id) {
     for (let attempt = 0; attempt < 5; attempt += 1) {
       const candidate = makeId()
@@ -1073,7 +1091,7 @@ async function publishShortcutPage(request, env) {
     content: body.content,
     allowDuplicate: true,
   }, env, true)
-  const absoluteUrl = new URL(page.url, `https://${page.domain || DEFAULT_DOMAIN}`).href
+  const absoluteUrl = new URL(page.url, publicOriginForDomain(page.domain)).href
   const editorUrl = new URL(
     `/admin?${new URLSearchParams({
       ...(page.domain && page.domain !== DEFAULT_DOMAIN ? { domain: page.domain } : {}),
@@ -1308,6 +1326,10 @@ async function updatePage(request, env, id, user = null) {
     return json({ error: "DB binding is not configured." }, { status: 500 })
   }
 
+  if (id === TRUSTED_HOME_PAGE_ID) {
+    return json({ error: "The trusted Built.at homepage is deployment-managed." }, { status: 403 })
+  }
+
   const existing = await env.DB.prepare("SELECT * FROM pages WHERE id = ? AND deleted_at IS NULL").bind(id).first()
 
   if (!existing) {
@@ -1431,6 +1453,10 @@ async function deletePage(env, id, user = null) {
     return json({ error: "DB binding is not configured." }, { status: 500 })
   }
 
+  if (id === TRUSTED_HOME_PAGE_ID) {
+    return json({ error: "The trusted Built.at homepage cannot be removed through the page API." }, { status: 403 })
+  }
+
   const existing = await env.DB.prepare(
     "SELECT id, owner_id, namespace, domain FROM pages WHERE id = ? AND deleted_at IS NULL"
   ).bind(id).first()
@@ -1545,6 +1571,10 @@ async function restorePage(env, id, user = null) {
 async function permanentlyDeletePage(env, id, user = null) {
   if (!env.DB) {
     return json({ error: "DB binding is not configured." }, { status: 500 })
+  }
+
+  if (id === TRUSTED_HOME_PAGE_ID) {
+    return json({ error: "The trusted Built.at homepage cannot be removed through the page API." }, { status: 403 })
   }
 
   const page = await env.DB.prepare(
@@ -1815,7 +1845,7 @@ async function renderPageRow(row, env) {
   })
 }
 
-function rawContentType(row) {
+function rawContentType() {
   return "text/html; charset=utf-8"
 }
 
@@ -1837,7 +1867,7 @@ pre{margin:0;padding:16px;font:16px/1.5 ui-monospace,SFMono-Regular,Menlo,Monaco
 
 function renderRawPageRow(row, request) {
   const headers = {
-    "content-type": rawContentType(row),
+    "content-type": rawContentType(),
     "cache-control": "public, max-age=5, must-revalidate",
   }
 
@@ -1990,6 +2020,30 @@ async function renderDomainPathRequest(request, env) {
   }
 
   return renderPageRow(row, env)
+}
+
+async function renderTrustedHome(env) {
+  if (!env.DB) {
+    return new Response("DB binding is not configured.", { status: 500 })
+  }
+
+  const row = await env.DB.prepare(
+    `SELECT * FROM pages
+     WHERE id = ? AND domain = ? AND status = 'published' AND deleted_at IS NULL
+     LIMIT 1`
+  ).bind(TRUSTED_HOME_PAGE_ID, DEFAULT_DOMAIN).first()
+
+  if (!row) {
+    return new Response("Built.at is temporarily unavailable.", { status: 503 })
+  }
+
+  const response = await renderPageRow(row, env)
+  const headers = new Headers(response.headers)
+  headers.delete("set-cookie")
+  headers.set("content-security-policy", "script-src 'none'; object-src 'none'; base-uri 'none'")
+  headers.set("referrer-policy", "strict-origin-when-cross-origin")
+  headers.set("x-content-type-options", "nosniff")
+  return new Response(response.body, { status: response.status, headers })
 }
 
 async function renderAdmin(request, env) {
@@ -2169,21 +2223,22 @@ async function listPages(env, domain = DEFAULT_DOMAIN, user = null, personalWork
 export default {
   async fetch(request, env) {
     let url = new URL(request.url)
+    const originalHostname = url.hostname
     const httpsUpgrade = httpsUpgradeResponse(request, url)
 
     if (httpsUpgrade) {
       return httpsUpgrade
     }
 
+    if (url.hostname === "hand.built.at" || url.hostname === "voice.built.at") {
+      return new Response("Not found", { status: 404 })
+    }
+
     if (url.hostname === "admin.built.at") {
-      return redirectResponse(`https://built.at/admin${url.search}`)
+      return redirectResponse(`${EDITOR_ORIGIN}/admin${url.search}`)
     }
 
-    if (url.hostname === "built.at" && url.pathname === "/" && (request.method === "GET" || request.method === "HEAD")) {
-      return redirectResponse(`https://voice.built.at/${url.search}`)
-    }
-
-    if (url.hostname === "hand.built.at") {
+    if (url.hostname === "host.built.at") {
       url = new URL(request.url)
       url.hostname = "built.at"
       request = new Request(url, request)
@@ -2376,6 +2431,7 @@ export default {
     }
 
     if (url.pathname === "/api/internal/render-path" && (request.method === "GET" || request.method === "HEAD")) {
+      if (originalHostname === TRUSTED_HOSTNAME) return new Response("Not found", { status: 404 })
       const user = await currentUser(request, env)
       if (!user) return unauthorizedJson()
       return renderDomainPathRequest(request, env)
@@ -2398,6 +2454,9 @@ export default {
     const publicPageMatch = url.pathname.match(/^\/p\/([A-Za-z0-9_-]+)(?:\/.*)?$/)
 
     if (publicPageMatch && (request.method === "GET" || request.method === "HEAD")) {
+      if (originalHostname === TRUSTED_HOSTNAME) {
+        return redirectResponse(`${LEGACY_PUBLIC_ORIGIN}${url.pathname}${url.search}`)
+      }
       const row = await env.DB.prepare("SELECT id FROM pages WHERE id = ? AND deleted_at IS NULL")
         .bind(publicPageMatch[1])
         .first()
@@ -2410,6 +2469,7 @@ export default {
     }
 
     if (url.pathname === "/" && (request.method === "GET" || request.method === "HEAD")) {
+      if (originalHostname === TRUSTED_HOSTNAME) return renderTrustedHome(env)
       const homeResponse = await renderHome(env, domain)
 
       if (fallbackOrigin && homeResponse.status === 404) {
@@ -2444,6 +2504,9 @@ export default {
       !url.pathname.startsWith("/assets/") &&
       !url.pathname.includes(".")
     ) {
+      if (originalHostname === TRUSTED_HOSTNAME) {
+        return redirectResponse(`${USER_PAGES_ORIGIN}${url.pathname}${url.search}`)
+      }
       const routeResponse = await renderRoutePath(url.pathname, env, domain)
 
       if (routeResponse) {

@@ -4,7 +4,11 @@
   "workers_dev": true,
   "routes": [
     {
-      "pattern": "built.at/*",
+      "pattern": "host.built.at/*",
+      "zone_name": "built.at"
+    },
+    {
+      "pattern": "www.built.at/*",
       "zone_name": "built.at"
     },
     {
